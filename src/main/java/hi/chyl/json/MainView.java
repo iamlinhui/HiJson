@@ -74,6 +74,7 @@ public class MainView extends FrameView {
         JButton btnAppTitle = new JButton("标题修改");
         JButton btnFormat = new JButton("格式化(F)");
         JButton btnSort = new JButton("排序(G)");
+        JButton btnZip = new JButton("压缩(H)");
         JButton btnClean = new JButton("清空(D)");
         JButton btnParse = new JButton("粘帖(V)");
         JButton btnNewLine = new JButton("清除(\\n)");
@@ -99,12 +100,21 @@ public class MainView extends FrameView {
         });
 
         btnSort.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 sortFormatJson();
             }
         });
 
+        btnZip.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                zipFormatJson();
+            }
+        });
+
         btnClean.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 JTextArea ta = getTextArea();
                 if (ta != null) {
@@ -115,6 +125,7 @@ public class MainView extends FrameView {
         });
 
         btnParse.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 JTextArea ta = getTextArea();
                 if (ta != null) {
@@ -125,6 +136,7 @@ public class MainView extends FrameView {
         });
 
         btnNewLine.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 JTextArea ta = getTextArea();
                 if (ta != null) {
@@ -143,20 +155,27 @@ public class MainView extends FrameView {
         });
 
         btnTxtFind.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
-                if (isTxtFindDlgOpen) return;
+                if (isTxtFindDlgOpen) {
+                    return;
+                }
                 showFindDialog(1, "文本查找对话框");
             }
         });
 
         btnNodeFind.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
-                if (isTreeFinDlgdOpen) return;
+                if (isTreeFinDlgdOpen) {
+                    return;
+                }
                 showFindDialog(2, "树节点查找对话框");
             }
         });
 
         btnSelTabName.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 int selIndex = getTabIndex();
                 if (selIndex >= 0) {
@@ -167,12 +186,14 @@ public class MainView extends FrameView {
         });
 
         btnNewTab.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 addTab("NewTab", true);
             }
         });
 
         btnCloseTab.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 int selIndex = getTabIndex();
                 if (selIndex >= 0) {
@@ -184,6 +205,7 @@ public class MainView extends FrameView {
         toolbar.add(btnCloseTab);
         toolbar.add(btnFormat);
         toolbar.add(btnSort);
+        toolbar.add(btnZip);
         toolbar.add(btnClean);
         toolbar.add(btnParse);
         toolbar.add(btnNewLine);
@@ -223,7 +245,8 @@ public class MainView extends FrameView {
 
         JMenuItem menuItemOpenFile = createMenuItem("menuItemOpenFile", KeyEvent.VK_O);
         menuItemOpenFile.addActionListener(new ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 openFileAction(getTextArea());
             }
         });
@@ -231,7 +254,8 @@ public class MainView extends FrameView {
 
         JMenuItem menuItemSaveFile = createMenuItem("menuItemSaveFile", KeyEvent.VK_S);
         menuItemSaveFile.addActionListener(new ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 saveFileAction(getTextArea());
             }
         });
@@ -250,8 +274,9 @@ public class MainView extends FrameView {
         editMenu.setText(resourceMap.getString("editMenu.text"));
 
         JMenuItem menuItemClean = createMenuItem("menuItemClean", KeyEvent.VK_D);
-        menuItemClean.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        menuItemClean.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 getTextArea().setText("");
             }
         });
@@ -259,6 +284,7 @@ public class MainView extends FrameView {
 
         JMenuItem menuItemFormat = createMenuItem("menuItemFormat", KeyEvent.VK_F);
         menuItemFormat.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent evt) {
                 formatJson();
             }
@@ -268,6 +294,7 @@ public class MainView extends FrameView {
 
         JMenuItem menuItemSortFormat = createMenuItem("menuItemSortFormat", KeyEvent.VK_G);
         menuItemSortFormat.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent evt) {
                 sortFormatJson();
             }
@@ -275,13 +302,24 @@ public class MainView extends FrameView {
         editMenu.add(menuItemSortFormat);
 
 
+        JMenuItem menuItemZip = createMenuItem("menuItemZip", KeyEvent.VK_H);
+        menuItemZip.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                sortFormatJson();
+            }
+        });
+        editMenu.add(menuItemZip);
+
+
         menuBar.add(editMenu);
 
         toolMenu.setText(resourceMap.getString("toolMenu.text"));
 
         JMenuItem menuItemLayout = createMenuItem("menuItemLayout", KeyEvent.VK_L);
-        menuItemLayout.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        menuItemLayout.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 changeLayout();
             }
         });
@@ -289,16 +327,18 @@ public class MainView extends FrameView {
 
 
         JMenuItem menuItemNew = createMenuItem("menuItemNew", KeyEvent.VK_N);
-        menuItemNew.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        menuItemNew.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 addTab("NewTab", true);
             }
         });
         toolMenu.add(menuItemNew);
 
         JMenuItem menuItemCode = createMenuItem("menuItemCode", KeyEvent.VK_T);
-        menuItemCode.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        menuItemCode.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
                 codeChangeAction();
             }
         });
@@ -313,6 +353,7 @@ public class MainView extends FrameView {
         aboutMenuItem.setText(resourceMap.getString("aboutMenu.text"));
         aboutMenuItem.setName("aboutMenuItem");
         aboutMenuItem.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 showAboutBox();
             }
@@ -639,8 +680,8 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
+            Object obj = JSON.parseObject(text, Feature.OrderedField);
+            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 GsonBuilder gb = new GsonBuilder();
@@ -652,6 +693,43 @@ public class MainView extends FrameView {
                     jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
                     ta.setText(jsonStr);
                 }
+            } else {
+                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
+            }
+        } catch (Exception ex) {
+            showMessageDialog("非法JSON字符串！", ex.getMessage());
+            return;
+        }
+
+        //创建树节点
+        JTree tree = getTree();
+        System.out.println("Put HashCode : " + tree.hashCode() + " . TabTitle : " + getTabTitle() + " !");
+        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
+        DefaultMutableTreeNode root = Kit.objNode("JSON");
+        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        try {
+            createJsonTree(jsonEle, root);
+            model.setRoot(root);
+            setNodeIcon(tree);
+        } catch (Exception ex) {
+            root.removeAllChildren();
+            model.setRoot(root);
+            showMessageDialog("创建json树失败！", ex.getMessage());
+        }
+    }
+
+
+    private void zipFormatJson() {
+        //格式化字符串
+        JsonElement jsonEle = null;
+        JTextArea ta = getTextArea();
+        String text = ta.getText();
+        try {
+            Object obj = JSON.parseObject(text);
+            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
+            jsonEle = JsonParser.parseString(text);
+            if (jsonEle != null && !jsonEle.isJsonNull()) {
+                ta.setText(text);
             } else {
                 showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
             }
