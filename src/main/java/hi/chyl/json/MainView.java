@@ -71,7 +71,7 @@ public class MainView extends FrameView {
         JToolBar toolbar = new JToolBar();
         final JTextField textField = new JTextField();
         textField.setMaximumSize(new Dimension(180, 25));
-        JButton btnAppTitle = new JButton("标题修改");
+//        JButton btnAppTitle = new JButton("标题修改");
         JButton btnFormat = new JButton("格式化(F)");
         JButton btnSort = new JButton("排序(G)");
         JButton btnZip = new JButton("压缩(H)");
@@ -83,15 +83,14 @@ public class MainView extends FrameView {
         JButton btnNodeFind = new JButton("节点查找");
         JButton btnNewTab = new JButton("新标签(N)");
         JButton btnSelTabName = new JButton("标签名修改");
-        JButton btnCloseTab = new JButton("关闭标签");
+        JButton btnCloseTab = new JButton("关闭标签(W)");
 
-        btnAppTitle.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                System.out.println(textField.getText());
-                getFrame().setTitle(textField.getText());
-            }
-        });
+//        btnAppTitle.addActionListener(new ActionListener() {
+//            @Override
+//            public void actionPerformed(ActionEvent e) {
+//                getFrame().setTitle(textField.getText());
+//            }
+//        });
         btnFormat.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -214,7 +213,7 @@ public class MainView extends FrameView {
         toolbar.add(btnTxtFind);
         toolbar.addSeparator(new Dimension(30, 20));
         toolbar.add(textField);
-        toolbar.add(btnAppTitle);
+//        toolbar.add(btnAppTitle);
         toolbar.add(btnSelTabName);
         return toolbar;
     }
@@ -310,6 +309,19 @@ public class MainView extends FrameView {
             }
         });
         editMenu.add(menuItemZip);
+
+
+        JMenuItem menuItemClose = createMenuItem("menuItemClose", KeyEvent.VK_W);
+        menuItemClose.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                int selIndex = getTabIndex();
+                if (selIndex >= 0) {
+                    tabDataModel.removeTab(selIndex);
+                }
+            }
+        });
+        editMenu.add(menuItemClose);
 
 
         menuBar.add(editMenu);
