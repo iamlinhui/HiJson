@@ -70,7 +70,7 @@ public class MainView extends FrameView {
     private JToolBar createToolBar() {
         JToolBar toolbar = new JToolBar();
         final JTextField textField = new JTextField();
-        textField.setMaximumSize(new Dimension(180, 25));
+        textField.setMaximumSize(new Dimension(180, 100));
 //        JButton btnAppTitle = new JButton("标题修改");
         JButton btnFormat = new JButton("格式化(F)");
         JButton btnSort = new JButton("排序(G)");
