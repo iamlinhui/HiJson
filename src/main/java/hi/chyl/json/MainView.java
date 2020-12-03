@@ -306,7 +306,7 @@ public class MainView extends FrameView {
         menuItemZip.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                sortFormatJson();
+                zipFormatJson();
             }
         });
         editMenu.add(menuItemZip);
