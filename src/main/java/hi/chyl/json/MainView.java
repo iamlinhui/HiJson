@@ -692,8 +692,8 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text, Feature.OrderedField);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
+            Object obj = JSON.parseObject(text);
+            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 GsonBuilder gb = new GsonBuilder();
@@ -737,8 +737,8 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
+            Object obj = JSON.parseObject(text, Feature.OrderedField);
+            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 ta.setText(text);
