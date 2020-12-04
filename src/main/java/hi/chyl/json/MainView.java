@@ -648,7 +648,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text, Feature.OrderedField);
+            Object obj = JSON.parse(text, Feature.OrderedField);
             text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
@@ -692,7 +692,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text);
+            Object obj = JSON.parse(text);
             text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
@@ -737,7 +737,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parseObject(text, Feature.OrderedField);
+            Object obj = JSON.parse(text, Feature.OrderedField);
             text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
