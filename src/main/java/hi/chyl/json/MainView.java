@@ -1051,6 +1051,7 @@ public class MainView extends FrameView {
         pane.add(btnNext);
         //从头开始查找
         btnFind.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 boolean flag = false;
                 modifyDialgTitle(openDlg, flag, -1);
@@ -1065,6 +1066,7 @@ public class MainView extends FrameView {
         });
         //向下查找
         btnNext.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 boolean flag = false;
                 modifyDialgTitle(openDlg, flag, -1);
@@ -1086,6 +1088,7 @@ public class MainView extends FrameView {
         });
         //向上查找
         btnPrev.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 boolean flag = false;
                 JTree tree = getTree();
@@ -1107,9 +1110,11 @@ public class MainView extends FrameView {
         });
 
         openDlg.addWindowListener(new WindowListener() {
+            @Override
             public void windowOpened(WindowEvent e) {
             }
 
+            @Override
             public void windowClosing(WindowEvent e) {
                 treePathLst.clear();
                 if (type == 1) {

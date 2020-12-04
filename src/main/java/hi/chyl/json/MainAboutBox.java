@@ -159,7 +159,7 @@ public class MainAboutBox extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton closeButton;
+    private JButton closeButton;
     // End of variables declaration//GEN-END:variables
 
 }
