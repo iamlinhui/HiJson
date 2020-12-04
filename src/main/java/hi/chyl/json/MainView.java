@@ -324,6 +324,20 @@ public class MainView extends FrameView {
         editMenu.add(menuItemClose);
 
 
+        JMenuItem menuItemPaste = createMenuItem("menuItemPaste", KeyEvent.VK_V);
+        menuItemPaste.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                JTextArea ta = getTextArea();
+                if (ta != null) {
+                    ta.paste();
+                    formatJson();
+                }
+            }
+        });
+        editMenu.add(menuItemPaste);
+
+
         menuBar.add(editMenu);
 
         toolMenu.setText(resourceMap.getString("toolMenu.text"));
