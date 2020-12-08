@@ -672,7 +672,7 @@ public class MainView extends FrameView {
                 Gson gson = gb.create();
                 String jsonStr = gson.toJson(jsonEle);
                 if (jsonStr != null) {
-                    jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
+                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
                     ta.setText(jsonStr);
                 }
             } else {
@@ -716,7 +716,7 @@ public class MainView extends FrameView {
                 Gson gson = gb.create();
                 String jsonStr = gson.toJson(jsonEle);
                 if (jsonStr != null) {
-                    jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
+                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
                     ta.setText(jsonStr);
                 }
             } else {
