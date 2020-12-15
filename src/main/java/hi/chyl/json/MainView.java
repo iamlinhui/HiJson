@@ -666,10 +666,7 @@ public class MainView extends FrameView {
             text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
-                GsonBuilder gb = new GsonBuilder();
-                gb.setPrettyPrinting();
-                gb.serializeNulls();
-                Gson gson = gb.create();
+                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
                 String jsonStr = gson.toJson(jsonEle);
                 if (jsonStr != null) {
                     // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
@@ -710,10 +707,7 @@ public class MainView extends FrameView {
             text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
-                GsonBuilder gb = new GsonBuilder();
-                gb.setPrettyPrinting();
-                gb.serializeNulls();
-                Gson gson = gb.create();
+                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
                 String jsonStr = gson.toJson(jsonEle);
                 if (jsonStr != null) {
                     // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
