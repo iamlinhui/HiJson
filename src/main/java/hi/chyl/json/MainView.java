@@ -24,6 +24,7 @@ import org.netbeans.swing.tabcontrol.event.ComplexListDataListener;
 
 import javax.swing.*;
 import javax.swing.event.ListDataEvent;
+import javax.swing.event.TreeSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
@@ -179,7 +180,6 @@ public class MainView extends FrameView {
                 int selIndex = getTabIndex();
                 if (selIndex >= 0) {
                     tabDataModel.setText(selIndex, textField.getText());
-                    System.out.println("Modify HashCode : " + getTree(selIndex).hashCode() + " . TabTitle : " + textField.getText() + " !");
                 }
             }
         });
@@ -396,6 +396,7 @@ public class MainView extends FrameView {
         TabData tabData = newTabData("Welcome!", "This is a Tab!", null);
         tabDataModel = new DefaultTabDataModel(new TabData[]{tabData});
         tabbedContainer = new TabbedContainer(tabDataModel, TabbedContainer.TYPE_EDITOR);
+        tabbedContainer.setForeground(new Color(238,238,238));
         tabbedContainer.getSelectionModel().setSelectedIndex(0);
         tabbedContainer.setShowCloseButton(true);
         tabDataModel.addComplexListDataListener(new ComplexListDataListener() {
@@ -419,7 +420,6 @@ public class MainView extends FrameView {
                     JTree tree = getTree(tbArr[0]);
                     if (tree != null) {
                         jsonEleTreeMap.remove(tree.hashCode());
-                        System.out.println("Remove HashCode: " + tree.hashCode() + ". Close Tab: " + tbArr[0].getText() + " !");
                     }
                 }
             }
@@ -430,7 +430,6 @@ public class MainView extends FrameView {
 
         tabbedContainer.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                //System.out.println("@@@:TabbedContainerActionCommand = "+e.getActionCommand());
                 if ("select".equalsIgnoreCase(e.getActionCommand())) {
                     treePathLst.clear();
                 }
@@ -536,14 +535,13 @@ public class MainView extends FrameView {
         DefaultMutableTreeNode root = new DefaultMutableTreeNode("o-JSON");
         DefaultTreeModel model = new DefaultTreeModel(root);
         JTree tree = new JTree(model);
-        tree.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
+        tree.addTreeSelectionListener(new TreeSelectionListener() {
             public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
                 treeSelection(getTree(), getTable());
             }
         });
         setNodeIcon(tree);
         tree.addMouseListener(new TreeMouseListener(tree));
-        System.out.println("New HashCode : " + tree.hashCode());
         return tree;
     }
 
@@ -562,7 +560,6 @@ public class MainView extends FrameView {
     private void treeSelection(JTree tree, JTable table) {
         DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
         if (selNode == null) {
-            //System.out.println("jTree1ValueChanged:selNode is null");
             return;
         }
         String col[] = {"key", "value"};
@@ -682,7 +679,6 @@ public class MainView extends FrameView {
 
         //创建树节点
         JTree tree = getTree();
-        System.out.println("Put HashCode : " + tree.hashCode() + " . TabTitle : " + getTabTitle() + " !");
         jsonEleTreeMap.put(tree.hashCode(), jsonEle);
         DefaultMutableTreeNode root = Kit.objNode("JSON");
         DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
@@ -723,7 +719,6 @@ public class MainView extends FrameView {
 
         //创建树节点
         JTree tree = getTree();
-        System.out.println("Put HashCode : " + tree.hashCode() + " . TabTitle : " + getTabTitle() + " !");
         jsonEleTreeMap.put(tree.hashCode(), jsonEle);
         DefaultMutableTreeNode root = Kit.objNode("JSON");
         DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
@@ -760,7 +755,6 @@ public class MainView extends FrameView {
 
         //创建树节点
         JTree tree = getTree();
-        System.out.println("Put HashCode : " + tree.hashCode() + " . TabTitle : " + getTabTitle() + " !");
         jsonEleTreeMap.put(tree.hashCode(), jsonEle);
         DefaultMutableTreeNode root = Kit.objNode("JSON");
         DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
@@ -923,18 +917,8 @@ public class MainView extends FrameView {
         if (index >= 0) {
             msg = msg.substring(index + ex.length());
         }
-        JDialog dlg = new JDialog(getFrame());
-        dlg.setTitle(title);
-        dlg.setMinimumSize(new Dimension(350, 160));
-        BorderLayout layout = new BorderLayout();
-        dlg.getContentPane().setLayout(layout);
-        dlg.getContentPane().add(new JLabel("异常信息："), BorderLayout.NORTH);
-        JTextArea ta = new JTextArea();
-        ta.setLineWrap(true);
-        ta.setText(msg);
-        ta.setWrapStyleWord(true);
-        dlg.getContentPane().add(new JScrollPane(ta), BorderLayout.CENTER);
-        MainApp.getApplication().show(dlg);
+        ToolTips tip = new ToolTips();
+        tip.setToolTip(title + "\n异常信息：" + msg);
     }
 
     //[start]自动调列宽
@@ -1352,7 +1336,6 @@ public class MainView extends FrameView {
         private String copyNodeContent(String path, boolean isFormat) {
             String str = "";
             String arr[] = StringUtils.split(path, String.valueOf(dot));
-            System.out.println("Get HashCode : " + tree.hashCode() + " . TabTitle : " + getTabTitle());
             JsonElement obj = (JsonElement) jsonEleTreeMap.get(tree.hashCode());
             if (arr.length > 1) {
                 for (int i = 1; i < arr.length; i++) {
