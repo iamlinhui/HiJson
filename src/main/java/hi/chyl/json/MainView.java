@@ -1508,7 +1508,8 @@ public class MainView extends FrameView {
     }
 
     private void codeChangeAction() {
-        javax.swing.JDialog dlg = new javax.swing.JDialog(getFrame());
+        JFrame mainFrame = MainApp.getApplication().getMainFrame();
+        JDialog dlg = new JDialog(mainFrame);
         dlg.setTitle(resourceMap.getString("menuItemCode.text"));
         dlg.setSize(500, 350);
         dlg.setMinimumSize(new Dimension(500, 350));
@@ -1535,6 +1536,7 @@ public class MainView extends FrameView {
         pane.add(btnOK, BorderLayout.SOUTH);
 
         btnOK.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 String str = textAreaSrc.getText();
                 str = StringEscapeUtils.unescapeJava(str);

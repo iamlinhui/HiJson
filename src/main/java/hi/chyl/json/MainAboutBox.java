@@ -33,7 +33,7 @@ public class MainAboutBox extends JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        closeButton = new javax.swing.JButton();
+        closeButton = new JButton();
         JLabel appTitleLabel = new JLabel();
         JLabel versionLabel = new JLabel();
         JLabel appVersionLabel = new JLabel();
