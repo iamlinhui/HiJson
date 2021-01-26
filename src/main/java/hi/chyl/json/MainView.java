@@ -1508,8 +1508,7 @@ public class MainView extends FrameView {
     }
 
     private void codeChangeAction() {
-        JFrame mainFrame = MainApp.getApplication().getMainFrame();
-        JDialog dlg = new JDialog(mainFrame);
+        JDialog dlg = new JDialog(getFrame(),true);
         dlg.setTitle(resourceMap.getString("menuItemCode.text"));
         dlg.setSize(500, 350);
         dlg.setMinimumSize(new Dimension(500, 350));
