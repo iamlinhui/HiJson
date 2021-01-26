@@ -1209,49 +1209,56 @@ public class MainView extends FrameView {
 
         @Override
         public void mousePressed(MouseEvent e) {
+            popupMenu(tree,e);
         }
 
         @Override
         public void mouseReleased(MouseEvent e) {
-            TreePath path = tree.getPathForLocation(e.getX(), e.getY());
-            if (path == null) return;
-            tree.setSelectionPath(path);
-            DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-            if (e.isPopupTrigger()) {
-                JPopupMenu popMenu = new JPopupMenu();
-                JMenuItem copyValue = new JMenuItem("复制 键值");
-                JMenuItem copyKey = new JMenuItem("复制 键名");
-                JMenuItem copyPath = new JMenuItem("复制 路径");
-                JMenuItem copyKeyValue = new JMenuItem("复制 键名键值");
-                JMenuItem copyNode = new JMenuItem("复制 节点内容");
-                JMenuItem copyPathAllVal = new JMenuItem("复制 同路径键值");
-                JMenuItem copySingleNodeString = new JMenuItem("复制 MAP式内容");
-                JMenuItem copyNodeFormat = new JMenuItem("复制 节点内容带格式");
-
-                popMenu.add(copyKey);
-                popMenu.add(copyValue);
-                popMenu.add(copyPath);
-                popMenu.add(copyNode);
-                popMenu.add(copyKeyValue);
-                popMenu.add(copySingleNodeString);
-                popMenu.add(copyPathAllVal);
-                popMenu.add(copyNodeFormat);
-                copyKey.addActionListener(new TreeNodeMenuItemActionListener(tree, 1, selNode));
-                copyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 2, selNode));
-                copyKeyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 3, selNode));
-                copyPath.addActionListener(new TreeNodeMenuItemActionListener(tree, 4, path));
-                copyPathAllVal.addActionListener(new TreeNodeMenuItemActionListener(tree, 5, selNode));
-                copyNode.addActionListener(new TreeNodeMenuItemActionListener(tree, 6, path));
-                copyNodeFormat.addActionListener(new TreeNodeMenuItemActionListener(tree, 7, path));
-                copySingleNodeString.addActionListener(new TreeNodeMenuItemActionListener(tree, 8, selNode));
-                popMenu.show(e.getComponent(), e.getX(), e.getY());
-            }
+            popupMenu(tree,e);
         }
 
         public void mouseEntered(MouseEvent e) {
         }
 
         public void mouseExited(MouseEvent e) {
+        }
+    }
+
+    private void popupMenu(JTree tree,MouseEvent e){
+        TreePath path = tree.getPathForLocation(e.getX(), e.getY());
+        if (path == null) {
+            return;
+        }
+        tree.setSelectionPath(path);
+        DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+        if (e.isPopupTrigger()) {
+            JPopupMenu popMenu = new JPopupMenu();
+            JMenuItem copyValue = new JMenuItem("复制 键值");
+            JMenuItem copyKey = new JMenuItem("复制 键名");
+            JMenuItem copyPath = new JMenuItem("复制 路径");
+            JMenuItem copyKeyValue = new JMenuItem("复制 键名键值");
+            JMenuItem copyNode = new JMenuItem("复制 节点内容");
+            JMenuItem copyPathAllVal = new JMenuItem("复制 同路径键值");
+            JMenuItem copySingleNodeString = new JMenuItem("复制 MAP式内容");
+            JMenuItem copyNodeFormat = new JMenuItem("复制 节点内容带格式");
+
+            popMenu.add(copyKey);
+            popMenu.add(copyValue);
+            popMenu.add(copyPath);
+            popMenu.add(copyNode);
+            popMenu.add(copyKeyValue);
+            popMenu.add(copySingleNodeString);
+            popMenu.add(copyPathAllVal);
+            popMenu.add(copyNodeFormat);
+            copyKey.addActionListener(new TreeNodeMenuItemActionListener(tree, 1, selNode));
+            copyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 2, selNode));
+            copyKeyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 3, selNode));
+            copyPath.addActionListener(new TreeNodeMenuItemActionListener(tree, 4, path));
+            copyPathAllVal.addActionListener(new TreeNodeMenuItemActionListener(tree, 5, selNode));
+            copyNode.addActionListener(new TreeNodeMenuItemActionListener(tree, 6, path));
+            copyNodeFormat.addActionListener(new TreeNodeMenuItemActionListener(tree, 7, path));
+            copySingleNodeString.addActionListener(new TreeNodeMenuItemActionListener(tree, 8, selNode));
+            popMenu.show(e.getComponent(), e.getX(), e.getY());
         }
     }
 
