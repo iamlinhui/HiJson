@@ -76,6 +76,7 @@ public class MainView extends FrameView {
         JButton btnFormat = new JButton("格式化(F)");
         JButton btnSort = new JButton("排序(G)");
         JButton btnZip = new JButton("压缩(H)");
+        JButton btnFilter = new JButton("过滤(L)");
         JButton btnClean = new JButton("清空(D)");
         JButton btnParse = new JButton("粘帖(V)");
         JButton btnNewLine = new JButton("清除(\\n)");
@@ -110,6 +111,13 @@ public class MainView extends FrameView {
             @Override
             public void actionPerformed(ActionEvent e) {
                 zipFormatJson();
+            }
+        });
+
+        btnFilter.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                filterFormatJson();
             }
         });
 
@@ -205,6 +213,7 @@ public class MainView extends FrameView {
         toolbar.add(btnFormat);
         toolbar.add(btnSort);
         toolbar.add(btnZip);
+        toolbar.add(btnFilter);
         toolbar.add(btnClean);
         toolbar.add(btnParse);
         toolbar.add(btnNewLine);
@@ -310,6 +319,15 @@ public class MainView extends FrameView {
         });
         editMenu.add(menuItemZip);
 
+        JMenuItem menuItemFilter = createMenuItem("menuItemFilter", KeyEvent.VK_L);
+        menuItemFilter.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                filterFormatJson();
+            }
+        });
+        editMenu.add(menuItemFilter);
+
 
         JMenuItem menuItemClose = createMenuItem("menuItemClose", KeyEvent.VK_W);
         menuItemClose.addActionListener(new ActionListener() {
@@ -396,7 +414,7 @@ public class MainView extends FrameView {
         TabData tabData = newTabData("Welcome!", "This is a Tab!", null);
         tabDataModel = new DefaultTabDataModel(new TabData[]{tabData});
         tabbedContainer = new TabbedContainer(tabDataModel, TabbedContainer.TYPE_EDITOR);
-        tabbedContainer.setForeground(new Color(238,238,238));
+        tabbedContainer.setForeground(new Color(238, 238, 238));
         tabbedContainer.getSelectionModel().setSelectedIndex(0);
         tabbedContainer.setShowCloseButton(true);
         tabDataModel.addComplexListDataListener(new ComplexListDataListener() {
@@ -745,6 +763,46 @@ public class MainView extends FrameView {
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 ta.setText(text);
+            } else {
+                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
+            }
+        } catch (Exception ex) {
+            showMessageDialog("非法JSON字符串！", ex.getMessage());
+            return;
+        }
+
+        //创建树节点
+        JTree tree = getTree();
+        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
+        DefaultMutableTreeNode root = Kit.objNode("JSON");
+        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        try {
+            createJsonTree(jsonEle, root);
+            model.setRoot(root);
+            setNodeIcon(tree);
+        } catch (Exception ex) {
+            root.removeAllChildren();
+            model.setRoot(root);
+            showMessageDialog("创建json树失败！", ex.getMessage());
+        }
+    }
+
+    private void filterFormatJson() {
+        //格式化字符串
+        JsonElement jsonEle = null;
+        JTextArea ta = getTextArea();
+        String text = ta.getText();
+        try {
+            Object obj = JSON.parse(JsonRuleUtils.filter(text), Feature.OrderedField);
+            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
+            jsonEle = JsonParser.parseString(text);
+            if (jsonEle != null && !jsonEle.isJsonNull()) {
+                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
+                String jsonStr = gson.toJson(jsonEle);
+                if (jsonStr != null) {
+                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
+                    ta.setText(jsonStr);
+                }
             } else {
                 showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
             }
@@ -1209,12 +1267,12 @@ public class MainView extends FrameView {
 
         @Override
         public void mousePressed(MouseEvent e) {
-            popupMenu(tree,e);
+            popupMenu(tree, e);
         }
 
         @Override
         public void mouseReleased(MouseEvent e) {
-            popupMenu(tree,e);
+            popupMenu(tree, e);
         }
 
         public void mouseEntered(MouseEvent e) {
@@ -1224,7 +1282,7 @@ public class MainView extends FrameView {
         }
     }
 
-    private void popupMenu(JTree tree,MouseEvent e){
+    private void popupMenu(JTree tree, MouseEvent e) {
         TreePath path = tree.getPathForLocation(e.getX(), e.getY());
         if (path == null) {
             return;
@@ -1508,7 +1566,7 @@ public class MainView extends FrameView {
     }
 
     private void codeChangeAction() {
-        JDialog dlg = new JDialog(getFrame(),true);
+        JDialog dlg = new JDialog(getFrame(), true);
         dlg.setTitle(resourceMap.getString("menuItemCode.text"));
         dlg.setSize(500, 350);
         dlg.setMinimumSize(new Dimension(500, 350));
