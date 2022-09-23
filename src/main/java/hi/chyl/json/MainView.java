@@ -793,8 +793,8 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parse(JsonRuleUtils.filter(text), Feature.OrderedField);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
+            Object filter = JsonUtils.filterString(text);
+            text = JSON.toJSONString(filter, SerializerFeature.MapSortField);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
@@ -1217,8 +1217,7 @@ public class MainView extends FrameView {
         try {
             while (charsLeft > 0) {
                 doc.getText(offset, length, text);
-                if ((ignoreCase == true && text.toString().equalsIgnoreCase(key))
-                        || (ignoreCase == false && text.toString().equals(key))) {
+                if ((ignoreCase == true && text.toString().equalsIgnoreCase(key)) || (ignoreCase == false && text.toString().equals(key))) {
                     textArea.requestFocus();////焦点,才能能看到效果
                     textArea.setSelectionStart(offset);
                     textArea.setSelectionEnd(offset + length);

@@ -1,35 +1,32 @@
 package hi.chyl.json;
 
-
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONWriter;
-import org.apache.commons.lang.StringUtils;
 
 import java.util.*;
 
 /**
- * 剔除json串中的空map和空数组和空value和空字符串
+ * 剔除json串中的空map和空数组和空value和空字符串, 并解析String的json串
  *
  * @author lynn
  * @date 2022/7/11 14:16
  * @since v1.0.0
  */
 @SuppressWarnings("unchecked")
-public final class JsonRuleUtils {
+public final class JsonUtils {
 
-    public static String filter(String json) {
+    public static Object filterString(String json) {
         boolean valid = JSON.isValid(json);
         if (!valid) {
             return json;
         }
         Object parse = JSON.parse(json);
         if (parse instanceof Map) {
-            return JSON.toJSONString(filterMap((Map<String, Object>) parse), JSONWriter.Feature.IgnoreNoneSerializable);
+            return filterMap((Map<String, Object>) parse);
         }
         if (parse instanceof List) {
-            return JSON.toJSONString(filterList((List<Object>) parse), JSONWriter.Feature.IgnoreNoneSerializable);
+            return filterList((List<Object>) parse);
         }
-        return json;
+        return parse;
     }
 
     private static List<Object> filterList(List<Object> source) {
@@ -39,10 +36,10 @@ public final class JsonRuleUtils {
                 Optional.ofNullable(filterMap((Map<String, Object>) value)).ifPresent(result::add);
             } else if (value instanceof List) {
                 Optional.ofNullable(filterList((List<Object>) value)).ifPresent(result::add);
+            } else if (value instanceof String) {
+                Optional.ofNullable(filterString((String) value)).ifPresent(result::add);
             } else {
-                if (value != null && StringUtils.isNotEmpty(value.toString())) {
-                    result.add(value);
-                }
+                Optional.ofNullable(value).ifPresent(result::add);
             }
         }
         return result.isEmpty() ? null : result;
@@ -56,10 +53,10 @@ public final class JsonRuleUtils {
                 Optional.ofNullable(filterMap((Map<String, Object>) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
             } else if (value instanceof List) {
                 Optional.ofNullable(filterList((List<Object>) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
+            } else if (value instanceof String) {
+                Optional.ofNullable(filterString((String) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
             } else {
-                if (value != null && StringUtils.isNotEmpty(value.toString())) {
-                    result.put(entry.getKey(), value);
-                }
+                Optional.ofNullable(value).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
             }
         }
         return result.isEmpty() ? null : result;
