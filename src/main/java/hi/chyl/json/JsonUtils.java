@@ -15,9 +15,10 @@ import java.util.*;
 public final class JsonUtils {
 
     public static Object filterString(String json) {
+
         boolean valid = JSON.isValid(json);
         if (!valid) {
-            return json;
+            return isEmpty(json) ? null : json;
         }
         Object parse = JSON.parse(json);
         if (parse instanceof Map) {
@@ -25,6 +26,9 @@ public final class JsonUtils {
         }
         if (parse instanceof List) {
             return filterList((List<Object>) parse);
+        }
+        if (parse instanceof String) {
+            return isEmpty(parse) ? null : json;
         }
         return parse;
     }
@@ -34,31 +38,43 @@ public final class JsonUtils {
         for (Object value : source) {
             if (value instanceof Map) {
                 Optional.ofNullable(filterMap((Map<String, Object>) value)).ifPresent(result::add);
-            } else if (value instanceof List) {
-                Optional.ofNullable(filterList((List<Object>) value)).ifPresent(result::add);
-            } else if (value instanceof String) {
-                Optional.ofNullable(filterString((String) value)).ifPresent(result::add);
-            } else {
-                Optional.ofNullable(value).ifPresent(result::add);
+                continue;
             }
+            if (value instanceof List) {
+                Optional.ofNullable(filterList((List<Object>) value)).ifPresent(result::add);
+                continue;
+            }
+            if (value instanceof String) {
+                Optional.ofNullable(filterString((String) value)).ifPresent(result::add);
+                continue;
+            }
+            Optional.ofNullable(value).ifPresent(result::add);
         }
         return result.isEmpty() ? null : result;
     }
 
     private static Map<String, Object> filterMap(Map<String, Object> source) {
-        Map<String, Object> result = new HashMap<>(16);
+        Map<String, Object> result = new HashMap<>();
         for (Map.Entry<String, Object> entry : source.entrySet()) {
             Object value = entry.getValue();
             if (value instanceof Map) {
                 Optional.ofNullable(filterMap((Map<String, Object>) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
-            } else if (value instanceof List) {
-                Optional.ofNullable(filterList((List<Object>) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
-            } else if (value instanceof String) {
-                Optional.ofNullable(filterString((String) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
-            } else {
-                Optional.ofNullable(value).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
+                continue;
             }
+            if (value instanceof List) {
+                Optional.ofNullable(filterList((List<Object>) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
+                continue;
+            }
+            if (value instanceof String) {
+                Optional.ofNullable(filterString((String) value)).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
+                continue;
+            }
+            Optional.ofNullable(value).ifPresent(filterValue -> result.put(entry.getKey(), filterValue));
         }
         return result.isEmpty() ? null : result;
+    }
+
+    private static boolean isEmpty(Object str) {
+        return (str == null || "".equals(str));
     }
 }
