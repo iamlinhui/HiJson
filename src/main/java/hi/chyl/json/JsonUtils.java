@@ -16,7 +16,7 @@ public final class JsonUtils {
 
     public static Object filterString(String json) {
 
-        boolean valid = JSON.isValid(json);
+        boolean valid = JSON.isValidObject(json) || JSON.isValidArray(json);
         if (!valid) {
             return isEmpty(json) ? null : json;
         }
@@ -26,9 +26,6 @@ public final class JsonUtils {
         }
         if (parse instanceof List) {
             return filterList((List<Object>) parse);
-        }
-        if (parse instanceof String) {
-            return isEmpty(parse) ? null : json;
         }
         return parse;
     }
@@ -75,6 +72,6 @@ public final class JsonUtils {
     }
 
     private static boolean isEmpty(Object str) {
-        return (str == null || "".equals(str));
+        return (str == null || "".equals(str) || "null".equals(str));
     }
 }
