@@ -1,7 +1,6 @@
 package hi.chyl.json;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.parser.Feature;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.google.gson.*;
 import org.apache.commons.lang.StringEscapeUtils;
@@ -76,7 +75,7 @@ public class MainView extends FrameView {
         JButton btnFormat = new JButton("格式化(F)");
         JButton btnSort = new JButton("排序(G)");
         JButton btnZip = new JButton("压缩(H)");
-        JButton btnFilter = new JButton("过滤(L)");
+        JButton btnFilter = new JButton("去空(B)");
         JButton btnClean = new JButton("清空(D)");
         JButton btnParse = new JButton("粘帖(V)");
         JButton btnNewLine = new JButton("清除(\\n)");
@@ -319,7 +318,7 @@ public class MainView extends FrameView {
         });
         editMenu.add(menuItemZip);
 
-        JMenuItem menuItemFilter = createMenuItem("menuItemFilter", KeyEvent.VK_L);
+        JMenuItem menuItemFilter = createMenuItem("menuItemFilter", KeyEvent.VK_B);
         menuItemFilter.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
@@ -677,8 +676,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parse(text, Feature.OrderedField);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
+            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
@@ -717,8 +715,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parse(text);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField);
+            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField, SerializerFeature.DisableCircularReferenceDetect);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
@@ -758,8 +755,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object obj = JSON.parse(text, Feature.OrderedField);
-            text = JSON.toJSONString(obj, SerializerFeature.WriteMapNullValue);
+            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 ta.setText(text);
@@ -793,8 +789,7 @@ public class MainView extends FrameView {
         JTextArea ta = getTextArea();
         String text = ta.getText();
         try {
-            Object filter = JsonUtils.filterString(text);
-            text = JSON.toJSONString(filter, SerializerFeature.MapSortField);
+            text = JSON.toJSONString(JsonUtils.filterString(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
             jsonEle = JsonParser.parseString(text);
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
@@ -1405,7 +1400,9 @@ public class MainView extends FrameView {
                 for (int i = 1; i < arr.length; i++) {
                     int index = Kit.getIndex(arr[i]);
                     String key = Kit.getKey(arr[i]);
-                    if (obj.isJsonPrimitive()) break;
+                    if (obj.isJsonPrimitive()) {
+                        break;
+                    }
                     if (index == -1) {
                         obj = obj.getAsJsonObject().get(key);
                     } else {
@@ -1415,7 +1412,9 @@ public class MainView extends FrameView {
             }
             if (obj != null && !obj.isJsonNull()) {
                 GsonBuilder gb = new GsonBuilder();
-                if (isFormat) gb.setPrettyPrinting();
+                if (isFormat) {
+                    gb.setPrettyPrinting();
+                }
                 gb.serializeNulls();
                 Gson gson = gb.create();
                 str = gson.toJson(obj);
@@ -1424,7 +1423,9 @@ public class MainView extends FrameView {
         }
 
         public void actionPerformed(ActionEvent e) {
-            if (obj == null) return;
+            if (obj == null) {
+                return;
+            }
             StringSelection stringSelection = null;
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             if (optType == 4) {
@@ -1432,7 +1433,6 @@ public class MainView extends FrameView {
                 path = StringUtils.replace(path, String.valueOf(dot), ".");
                 stringSelection = new StringSelection(path);
                 clipboard.setContents(stringSelection, null);
-                return;
             } else if (optType == 5) {
                 stringSelection = new StringSelection(copySimilarPathKeyValue((TreeNode) obj));
                 clipboard.setContents(stringSelection, null);
@@ -1440,11 +1440,12 @@ public class MainView extends FrameView {
             } else if (optType == 6 || optType == 7) {
                 String path = copyTreeNodePath((TreePath) obj);
                 boolean isForamt = false;
-                if (optType == 7) isForamt = true;
+                if (optType == 7) {
+                    isForamt = true;
+                }
                 String str = copyNodeContent(path, isForamt);
                 stringSelection = new StringSelection(str);
                 clipboard.setContents(stringSelection, null);
-                return;
             } else {
                 String str = obj.toString();
                 String[] arr = Kit.pstr(str);
