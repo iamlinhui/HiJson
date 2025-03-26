@@ -1,7 +1,8 @@
 package hi.chyl.json;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.serializer.SerializerFeature;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import com.google.gson.*;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
@@ -35,20 +36,22 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.*;
+import java.util.function.Function;
 
 public class MainView extends FrameView {
     private JDialog aboutBox;
     private TabDataModel tabDataModel;
     private TabbedContainer tabbedContainer;
-    private Map jsonEleTreeMap = new HashMap();
+    private final Map<Integer, JsonElement> jsonEleTreeMap = new HashMap<>();
     private boolean isTxtFindDlgOpen = false;
     private boolean isTreeFinDlgdOpen = false;
-    private List<TreePath> treePathLst = new ArrayList<TreePath>();
-    private char dot = 30;
+    private final List<TreePath> treePathLst = new ArrayList<>();
+    private final char dot = 30;
     private int curPos = 0;
-    private ResourceMap resourceMap;
+    private final ResourceMap resourceMap;
 
     public MainView(SingleFrameApplication app) {
         super(app);
@@ -518,9 +521,7 @@ public class MainView extends FrameView {
 
         splitPane.setRightComponent(rightSplitPane);
 
-        TabData tabData = new TabData(splitPane, icon, tabName, tabTip);
-
-        return tabData;
+        return new TabData(splitPane, icon, tabName, tabTip);
     }
 
     private RSyntaxTextArea newTextArea() {
@@ -669,158 +670,6 @@ public class MainView extends FrameView {
         return getTable(getTabIndex());
     }
 
-
-    private void formatJson() {
-        //格式化字符串
-        JsonElement jsonEle = null;
-        JTextArea ta = getTextArea();
-        String text = ta.getText();
-        try {
-            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
-            jsonEle = JsonParser.parseString(text);
-            if (jsonEle != null && !jsonEle.isJsonNull()) {
-                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
-                String jsonStr = gson.toJson(jsonEle);
-                if (jsonStr != null) {
-                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
-                    ta.setText(jsonStr);
-                }
-            } else {
-                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
-            }
-        } catch (Exception ex) {
-            showMessageDialog("非法JSON字符串！", ex.getMessage());
-            return;
-        }
-
-        //创建树节点
-        JTree tree = getTree();
-        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
-        DefaultMutableTreeNode root = Kit.objNode("JSON");
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-        try {
-            createJsonTree(jsonEle, root);
-            model.setRoot(root);
-            setNodeIcon(tree);
-        } catch (Exception ex) {
-            root.removeAllChildren();
-            model.setRoot(root);
-            showMessageDialog("创建json树失败！", ex.getMessage());
-        }
-    }
-
-    private void sortFormatJson() {
-        //格式化字符串
-        JsonElement jsonEle = null;
-        JTextArea ta = getTextArea();
-        String text = ta.getText();
-        try {
-            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.MapSortField, SerializerFeature.DisableCircularReferenceDetect);
-            jsonEle = JsonParser.parseString(text);
-            if (jsonEle != null && !jsonEle.isJsonNull()) {
-                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
-                String jsonStr = gson.toJson(jsonEle);
-                if (jsonStr != null) {
-                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
-                    ta.setText(jsonStr);
-                }
-            } else {
-                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
-            }
-        } catch (Exception ex) {
-            showMessageDialog("非法JSON字符串！", ex.getMessage());
-            return;
-        }
-
-        //创建树节点
-        JTree tree = getTree();
-        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
-        DefaultMutableTreeNode root = Kit.objNode("JSON");
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-        try {
-            createJsonTree(jsonEle, root);
-            model.setRoot(root);
-            setNodeIcon(tree);
-        } catch (Exception ex) {
-            root.removeAllChildren();
-            model.setRoot(root);
-            showMessageDialog("创建json树失败！", ex.getMessage());
-        }
-    }
-
-
-    private void zipFormatJson() {
-        //格式化字符串
-        JsonElement jsonEle = null;
-        JTextArea ta = getTextArea();
-        String text = ta.getText();
-        try {
-            text = JSON.toJSONString(JSON.parse(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
-            jsonEle = JsonParser.parseString(text);
-            if (jsonEle != null && !jsonEle.isJsonNull()) {
-                ta.setText(text);
-            } else {
-                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
-            }
-        } catch (Exception ex) {
-            showMessageDialog("非法JSON字符串！", ex.getMessage());
-            return;
-        }
-
-        //创建树节点
-        JTree tree = getTree();
-        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
-        DefaultMutableTreeNode root = Kit.objNode("JSON");
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-        try {
-            createJsonTree(jsonEle, root);
-            model.setRoot(root);
-            setNodeIcon(tree);
-        } catch (Exception ex) {
-            root.removeAllChildren();
-            model.setRoot(root);
-            showMessageDialog("创建json树失败！", ex.getMessage());
-        }
-    }
-
-    private void filterFormatJson() {
-        //格式化字符串
-        JsonElement jsonEle = null;
-        JTextArea ta = getTextArea();
-        String text = ta.getText();
-        try {
-            text = JSON.toJSONString(JsonUtils.filterString(text), SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect);
-            jsonEle = JsonParser.parseString(text);
-            if (jsonEle != null && !jsonEle.isJsonNull()) {
-                Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create();
-                String jsonStr = gson.toJson(jsonEle);
-                if (jsonStr != null) {
-                    // jsonStr = StringEscapeUtils.unescapeJava(jsonStr);
-                    ta.setText(jsonStr);
-                }
-            } else {
-                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
-            }
-        } catch (Exception ex) {
-            showMessageDialog("非法JSON字符串！", ex.getMessage());
-            return;
-        }
-
-        //创建树节点
-        JTree tree = getTree();
-        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
-        DefaultMutableTreeNode root = Kit.objNode("JSON");
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-        try {
-            createJsonTree(jsonEle, root);
-            model.setRoot(root);
-            setNodeIcon(tree);
-        } catch (Exception ex) {
-            root.removeAllChildren();
-            model.setRoot(root);
-            showMessageDialog("创建json树失败！", ex.getMessage());
-        }
-    }
 
     private String getTabTitle() {
         return tabDataModel.getTab(getTabIndex()).getText();
@@ -978,8 +827,7 @@ public class MainView extends FrameView {
     private int getPreferredWidthForColumn(JTable table, TableColumn col) {
         int hw = columnHeaderWidth(table, col);  // hw = header width
         int cw = widestCellInColumn(table, col);  // cw = column width
-        return hw > cw ? hw : cw;
-
+        return Math.max(hw, cw);
     }
 
     private int columnHeaderWidth(JTable table, TableColumn col) {
@@ -995,7 +843,7 @@ public class MainView extends FrameView {
             TableCellRenderer renderer = table.getCellRenderer(r, c);
             Component comp = renderer.getTableCellRendererComponent(table, table.getValueAt(r, c), false, false, r, c);
             width = comp.getPreferredSize().width;
-            maxw = width > maxw ? width : maxw;
+            maxw = Math.max(width, maxw);
         }
         if (maxw < 90) maxw = 90;
         return maxw + 10;
@@ -1212,7 +1060,7 @@ public class MainView extends FrameView {
         try {
             while (charsLeft > 0) {
                 doc.getText(offset, length, text);
-                if ((ignoreCase == true && text.toString().equalsIgnoreCase(key)) || (ignoreCase == false && text.toString().equals(key))) {
+                if ((ignoreCase && text.toString().equalsIgnoreCase(key)) || (!ignoreCase && text.toString().equals(key))) {
                     textArea.requestFocus();////焦点,才能能看到效果
                     textArea.setSelectionStart(offset);
                     textArea.setSelectionEnd(offset + length);
@@ -1226,7 +1074,7 @@ public class MainView extends FrameView {
                 }
 
             }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
 
         }
         return false;
@@ -1436,13 +1284,9 @@ public class MainView extends FrameView {
             } else if (optType == 5) {
                 stringSelection = new StringSelection(copySimilarPathKeyValue((TreeNode) obj));
                 clipboard.setContents(stringSelection, null);
-                return;
             } else if (optType == 6 || optType == 7) {
                 String path = copyTreeNodePath((TreePath) obj);
-                boolean isForamt = false;
-                if (optType == 7) {
-                    isForamt = true;
-                }
+                boolean isForamt = optType == 7;
                 String str = copyNodeContent(path, isForamt);
                 stringSelection = new StringSelection(str);
                 clipboard.setContents(stringSelection, null);
@@ -1486,7 +1330,7 @@ public class MainView extends FrameView {
                 popMenu.add(mtSelAll);
                 popMenu.add(mtClean);
                 JTextArea ta = getTextArea();
-                if (ta.getSelectedText() == null || ta.getSelectedText().length() == 0) {
+                if (ta == null || ta.getSelectedText() == null || ta.getSelectedText().isEmpty()) {
                     mtCopy.setEnabled(false);
                 }
 
@@ -1540,24 +1384,24 @@ public class MainView extends FrameView {
         java.awt.FileDialog openDlg = new java.awt.FileDialog(getFrame(), title, java.awt.FileDialog.LOAD);
         openDlg.setVisible(true);
         File file = new File(openDlg.getDirectory(), openDlg.getFile()); //fc.getSelectedFile();
-        if (file == null || file.getPath().length() == 0) return;
+        if (file.getPath().isEmpty()) return;
         BufferedReader reader = null;
         StringBuilder sb = new StringBuilder();
         try {
-            InputStreamReader isr = new InputStreamReader(new FileInputStream(file), "GBK");
+            InputStreamReader isr = new InputStreamReader(Files.newInputStream(file.toPath()), "GBK");
             reader = new BufferedReader(isr);
             String temp = null;
             while ((temp = reader.readLine()) != null) {
                 sb.append(temp);
             }
             reader.close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
 
         } finally {
             if (reader != null) {
                 try {
                     reader.close();
-                } catch (IOException e1) {
+                } catch (IOException ignored) {
                 }
             }
         }
@@ -1610,24 +1454,99 @@ public class MainView extends FrameView {
         java.awt.FileDialog closeDlg = new java.awt.FileDialog(getFrame(), title, java.awt.FileDialog.SAVE);
         closeDlg.setVisible(true);
         File file = new File(closeDlg.getDirectory(), closeDlg.getFile());
-        if (file == null || file.getPath().length() == 0) return;
+        if (file.getPath().isEmpty()) return;
         BufferedWriter write = null;
         StringBuilder sb = new StringBuilder();
         try {
-            OutputStreamWriter osw = new OutputStreamWriter(new FileOutputStream(file), "GBK");
+            OutputStreamWriter osw = new OutputStreamWriter(Files.newOutputStream(file.toPath()), "GBK");
             write = new BufferedWriter(osw);
             String text = StringUtils.replace(textArea.getText(), "\n", "\r\n");
             write.write(text, 0, text.length());
             write.close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
 
         } finally {
             if (write != null) {
                 try {
                     write.close();
-                } catch (IOException e1) {
+                } catch (IOException ignored) {
                 }
             }
         }
     }
+
+    private void buildTree(JsonElement jsonEle) {
+        JTree tree = getTree();
+        jsonEleTreeMap.put(tree.hashCode(), jsonEle);
+        DefaultMutableTreeNode root = Kit.objNode("JSON");
+        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        try {
+            createJsonTree(jsonEle, root);
+            model.setRoot(root);
+            setNodeIcon(tree);
+        } catch (Exception ex) {
+            root.removeAllChildren();
+            model.setRoot(root);
+            showMessageDialog("创建json树失败！", ex.getMessage());
+        }
+    }
+
+    //===================================================json============================
+
+    private void processJson(Function<String, Object> jsonProcessor, JSONWriter.Feature... features) {
+        JTextArea ta = getTextArea();
+        String text = ta.getText();
+        try {
+            // 处理 JSON 逻辑
+            Object jsonObject = jsonProcessor.apply(text);
+            String formattedText = JSON.toJSONString(jsonObject, features);
+            JsonElement jsonEle = JsonParser.parseString(formattedText);
+
+            if (jsonEle != null && !jsonEle.isJsonNull()) {
+                ta.setText(formattedText);
+            } else {
+                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
+            }
+
+            // 创建树节点
+            buildTree(jsonEle);
+        } catch (Exception ex) {
+            showMessageDialog("非法JSON字符串！", ex.getMessage());
+        }
+    }
+
+    // 普通格式化
+    private void formatJson() {
+        processJson(JSON::parse,
+                JSONWriter.Feature.WriteMapNullValue,
+                JSONWriter.Feature.ReferenceDetection,
+                JSONWriter.Feature.PrettyFormat);
+    }
+
+    // 排序格式化
+    private void sortFormatJson() {
+        processJson(JSON::parse,
+                JSONWriter.Feature.WriteMapNullValue,
+                JSONWriter.Feature.SortMapEntriesByKeys,
+                JSONWriter.Feature.ReferenceDetection,
+                JSONWriter.Feature.PrettyFormat);
+    }
+
+    // 紧凑格式化
+    private void zipFormatJson() {
+        processJson(JSON::parse,
+                JSONWriter.Feature.WriteMapNullValue,
+                JSONWriter.Feature.SortMapEntriesByKeys,
+                JSONWriter.Feature.ReferenceDetection);
+    }
+
+    // 过滤后格式化
+    private void filterFormatJson() {
+        processJson(JsonFilter::filterString,
+                JSONWriter.Feature.WriteMapNullValue,
+                JSONWriter.Feature.SortMapEntriesByKeys,
+                JSONWriter.Feature.ReferenceDetection,
+                JSONWriter.Feature.PrettyFormat);
+    }
+
 }

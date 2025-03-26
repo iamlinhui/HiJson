@@ -1,6 +1,7 @@
 package hi.chyl.json;
 
-import com.alibaba.fastjson.JSON;
+
+import com.alibaba.fastjson2.JSON;
 
 import java.util.*;
 
@@ -12,11 +13,11 @@ import java.util.*;
  * @since v1.0.0
  */
 @SuppressWarnings("unchecked")
-public final class JsonUtils {
+public final class JsonFilter {
 
     public static Object filterString(String json) {
 
-        boolean valid = JSON.isValidObject(json) || JSON.isValidArray(json);
+        boolean valid = JSON.isValid(json);
         if (!valid) {
             return isNull(json) ? null : json;
         }
