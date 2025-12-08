@@ -1,9 +1,12 @@
 package hi.chyl.json;
 
-
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
 import com.google.gson.*;
+import hi.chyl.json.utils.JsonFilter;
+import hi.chyl.json.utils.NodeKit;
+import hi.chyl.json.utils.ToolTips;
+import hi.chyl.json.utils.ValueParser;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
@@ -24,7 +27,6 @@ import org.netbeans.swing.tabcontrol.event.ComplexListDataListener;
 
 import javax.swing.*;
 import javax.swing.event.ListDataEvent;
-import javax.swing.event.TreeSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
@@ -32,385 +34,186 @@ import javax.swing.text.Document;
 import javax.swing.text.Segment;
 import javax.swing.tree.*;
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.*;
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class MainView extends FrameView {
+
+    // --- Constants & Resources ---
+    private static final String DEFAULT_ENCODING = "UTF-8";
+    private static final char DOT = 30;
+
+    // 预加载图标，避免在 Renderer 中重复加载导致性能问题
+    private final Map<String, Icon> iconCache = new HashMap<>();
+
+    // --- Components ---
     private JDialog aboutBox;
     private TabDataModel tabDataModel;
     private TabbedContainer tabbedContainer;
     private final Map<Integer, JsonElement> jsonEleTreeMap = new HashMap<>();
+
+    // --- State ---
     private boolean isTxtFindDlgOpen = false;
-    private boolean isTreeFinDlgdOpen = false;
+    private boolean isTreeFinDlgOpen = false;
     private final List<TreePath> treePathLst = new ArrayList<>();
-    private final char dot = 30;
     private int curPos = 0;
     private final ResourceMap resourceMap;
 
     public MainView(SingleFrameApplication app) {
         super(app);
         resourceMap = Application.getInstance(MainApp.class).getContext().getResourceMap(MainView.class);
+        preloadIcons();
         initUI();
     }
 
+    private void preloadIcons() {
+        String[] icons = {"json", "a", "v", "o", "n", "k"};
+        for (String name : icons) {
+            String path = "/images/" + name + (name.equals("json") ? ".png" : ".gif");
+            iconCache.put(name, new ImageIcon(Objects.requireNonNull(getClass().getResource(path))));
+        }
+    }
 
     private void initUI() {
+        // 安全地获取图标，防止 NPE
+        Icon icon = iconCache.get("json");
+        if (icon != null) {
+            getFrame().setIconImage(((ImageIcon) icon).getImage());
+        }
 
-        Image ico = new ImageIcon(getClass().getResource("/images/json.png")).getImage();
-        getFrame().setIconImage(ico);
         setToolBar(createToolBar());
         setMenuBar(createMenuBar());
         initTabbedContainer();
         setComponent(tabbedContainer);
     }
 
+    // --- Toolbar Construction ---
+
     private JToolBar createToolBar() {
         JToolBar toolbar = new JToolBar();
-        final JTextField textField = new JTextField();
+        JTextField textField = new JTextField();
         textField.setMaximumSize(new Dimension(180, 100));
-//        JButton btnAppTitle = new JButton("标题修改");
-        JButton btnFormat = new JButton("格式化(F)");
-        JButton btnSort = new JButton("排序(G)");
-        JButton btnZip = new JButton("压缩(H)");
-        JButton btnFilter = new JButton("去空(B)");
-        JButton btnClean = new JButton("清空(D)");
-        JButton btnParse = new JButton("粘帖(V)");
-        JButton btnNewLine = new JButton("清除(\\n)");
-        JButton btnXG = new JButton("清除(\\)");
-        JButton btnTxtFind = new JButton("文本查找");
-        JButton btnNodeFind = new JButton("节点查找");
-        JButton btnNewTab = new JButton("新标签(N)");
-        JButton btnSelTabName = new JButton("标签名修改");
-        JButton btnCloseTab = new JButton("关闭标签(W)");
 
-//        btnAppTitle.addActionListener(new ActionListener() {
-//            @Override
-//            public void actionPerformed(ActionEvent e) {
-//                getFrame().setTitle(textField.getText());
-//            }
-//        });
-        btnFormat.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                formatJson();
-            }
-        });
-
-        btnSort.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                sortFormatJson();
-            }
-        });
-
-        btnZip.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                zipFormatJson();
-            }
-        });
-
-        btnFilter.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                filterFormatJson();
-            }
-        });
-
-        btnClean.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JTextArea ta = getTextArea();
-                if (ta != null) {
-                    ta.setText("");
-                }
-
-            }
-        });
-
-        btnParse.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JTextArea ta = getTextArea();
-                if (ta != null) {
-                    ta.paste();
-                    formatJson();
-                }
-            }
-        });
-
-        btnNewLine.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JTextArea ta = getTextArea();
-                if (ta != null) {
-                    ta.setText(ta.getText().replaceAll("\n", ""));
-                }
-            }
-        });
-
-        btnXG.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                JTextArea ta = getTextArea();
-                if (ta != null) {
-                    ta.setText(ta.getText().replaceAll("\\\\", ""));
-                }
-            }
-        });
-
-        btnTxtFind.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (isTxtFindDlgOpen) {
-                    return;
-                }
-                showFindDialog(1, "文本查找对话框");
-            }
-        });
-
-        btnNodeFind.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (isTreeFinDlgdOpen) {
-                    return;
-                }
+        // 使用 Helper 方法减少重复代码
+        toolbar.add(createToolbarButton("新标签(N)", e -> addTab("NewTab", true)));
+        toolbar.add(createToolbarButton("关闭标签(W)", e -> closeCurrentTab()));
+        toolbar.add(createToolbarButton("格式化(F)", e -> formatJson()));
+        toolbar.add(createToolbarButton("排序(G)", e -> sortFormatJson()));
+        toolbar.add(createToolbarButton("压缩(H)", e -> zipFormatJson()));
+        toolbar.add(createToolbarButton("去空(B)", e -> filterFormatJson()));
+        toolbar.add(createToolbarButton("解析(X)", e -> deepParseFormatJson()));
+        toolbar.add(createToolbarButton("清空(D)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> ta.setText(""))));
+        toolbar.add(createToolbarButton("粘帖(V)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
+            ta.paste();
+            formatJson();
+        })));
+        toolbar.add(createToolbarButton("清除(\\n)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\n", "")))));
+        toolbar.add(createToolbarButton("清除(\\)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\\\\", "")))));
+        toolbar.add(createToolbarButton("节点查找", e -> {
+            if (!isTreeFinDlgOpen) {
                 showFindDialog(2, "树节点查找对话框");
             }
-        });
-
-        btnSelTabName.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selIndex = getTabIndex();
-                if (selIndex >= 0) {
-                    tabDataModel.setText(selIndex, textField.getText());
-                }
+        }));
+        toolbar.add(createToolbarButton("文本查找", e -> {
+            if (!isTxtFindDlgOpen) {
+                showFindDialog(1, "文本查找对话框");
             }
-        });
+        }));
 
-        btnNewTab.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                addTab("NewTab", true);
-            }
-        });
-
-        btnCloseTab.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selIndex = getTabIndex();
-                if (selIndex >= 0) {
-                    tabDataModel.removeTab(selIndex);
-                }
-            }
-        });
-        toolbar.add(btnNewTab);
-        toolbar.add(btnCloseTab);
-        toolbar.add(btnFormat);
-        toolbar.add(btnSort);
-        toolbar.add(btnZip);
-        toolbar.add(btnFilter);
-        toolbar.add(btnClean);
-        toolbar.add(btnParse);
-        toolbar.add(btnNewLine);
-        toolbar.add(btnXG);
-        toolbar.add(btnNodeFind);
-        toolbar.add(btnTxtFind);
         toolbar.addSeparator(new Dimension(30, 20));
         toolbar.add(textField);
-//        toolbar.add(btnAppTitle);
+        JButton btnSelTabName = new JButton("标签名修改");
+        btnSelTabName.addActionListener(e -> {
+            int selIndex = getTabIndex();
+            if (selIndex >= 0) {
+                tabDataModel.setText(selIndex, textField.getText());
+            }
+        });
         toolbar.add(btnSelTabName);
         return toolbar;
     }
 
-    private int getTabIndex() {
-        return tabbedContainer.getSelectionModel().getSelectedIndex();
+    private JButton createToolbarButton(String text, ActionListener action) {
+        JButton btn = new JButton(text);
+        btn.addActionListener(action);
+        return btn;
     }
 
-    private JMenuItem createMenuItem(String name, int keyCode) {
-        JMenuItem menuItem = new JMenuItem();
-        menuItem.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.CTRL_MASK));
-        menuItem.setText(resourceMap.getString(name + ".text"));
-        return menuItem;
-    }
+    // --- Menu Construction ---
 
     private JMenuBar createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
-        JMenu fileMenu = new JMenu();
-        JMenu editMenu = new JMenu();
-        JMenu toolMenu = new JMenu();
-        JMenu helpMenu = new JMenu();
-
         menuBar.setName("menuBar");
 
-
-        fileMenu.setText(resourceMap.getString("fileMenu.text"));
-        fileMenu.setName("fileMenu");
-
-        JMenuItem menuItemOpenFile = createMenuItem("menuItemOpenFile", KeyEvent.VK_O);
-        menuItemOpenFile.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                openFileAction(getTextArea());
-            }
-        });
-        fileMenu.add(menuItemOpenFile);
-
-        JMenuItem menuItemSaveFile = createMenuItem("menuItemSaveFile", KeyEvent.VK_S);
-        menuItemSaveFile.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                saveFileAction(getTextArea());
-            }
-        });
-        fileMenu.add(menuItemSaveFile);
-
+        // File Menu
+        JMenu fileMenu = createMenu("fileMenu");
+        fileMenu.add(createMenuItem("menuItemOpenFile", KeyEvent.VK_O, e -> openFileAction(getTextArea())));
+        fileMenu.add(createMenuItem("menuItemSaveFile", KeyEvent.VK_S, e -> saveFileAction(getTextArea())));
 
         JMenuItem exitMenuItem = new JMenuItem();
         ActionMap actionMap = Application.getInstance(MainApp.class).getContext().getActionMap(MainView.class, this);
         exitMenuItem.setAction(actionMap.get("quit"));
-        exitMenuItem.setName("exitMenuItem");
         exitMenuItem.setText(resourceMap.getString("exitMenu.text"));
         fileMenu.add(exitMenuItem);
-
         menuBar.add(fileMenu);
 
-        editMenu.setText(resourceMap.getString("editMenu.text"));
-
-        JMenuItem menuItemClean = createMenuItem("menuItemClean", KeyEvent.VK_D);
-        menuItemClean.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                getTextArea().setText("");
-            }
-        });
-        editMenu.add(menuItemClean);
-
-        JMenuItem menuItemFormat = createMenuItem("menuItemFormat", KeyEvent.VK_F);
-        menuItemFormat.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                formatJson();
-            }
-        });
-        editMenu.add(menuItemFormat);
-
-
-        JMenuItem menuItemSortFormat = createMenuItem("menuItemSortFormat", KeyEvent.VK_G);
-        menuItemSortFormat.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                sortFormatJson();
-            }
-        });
-        editMenu.add(menuItemSortFormat);
-
-
-        JMenuItem menuItemZip = createMenuItem("menuItemZip", KeyEvent.VK_H);
-        menuItemZip.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                zipFormatJson();
-            }
-        });
-        editMenu.add(menuItemZip);
-
-        JMenuItem menuItemFilter = createMenuItem("menuItemFilter", KeyEvent.VK_B);
-        menuItemFilter.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                filterFormatJson();
-            }
-        });
-        editMenu.add(menuItemFilter);
-
-
-        JMenuItem menuItemClose = createMenuItem("menuItemClose", KeyEvent.VK_W);
-        menuItemClose.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                int selIndex = getTabIndex();
-                if (selIndex >= 0) {
-                    tabDataModel.removeTab(selIndex);
-                }
-            }
-        });
-        editMenu.add(menuItemClose);
-
-
-        JMenuItem menuItemPaste = createMenuItem("menuItemPaste", KeyEvent.VK_V);
-        menuItemPaste.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                JTextArea ta = getTextArea();
-                if (ta != null) {
-                    ta.paste();
-                    formatJson();
-                }
-            }
-        });
-        editMenu.add(menuItemPaste);
-
-
+        // Edit Menu
+        JMenu editMenu = createMenu("editMenu");
+        editMenu.add(createMenuItem("menuItemClean", KeyEvent.VK_D, e -> modifyText(ta -> ta.setText(""))));
+        editMenu.add(createMenuItem("menuItemFormat", KeyEvent.VK_F, e -> formatJson()));
+        editMenu.add(createMenuItem("menuItemSortFormat", KeyEvent.VK_G, e -> sortFormatJson()));
+        editMenu.add(createMenuItem("menuItemZip", KeyEvent.VK_H, e -> zipFormatJson()));
+        editMenu.add(createMenuItem("menuItemFilter", KeyEvent.VK_B, e -> filterFormatJson()));
+        editMenu.add(createMenuItem("menuItemDeepParse", KeyEvent.VK_X, e -> deepParseFormatJson()));
+        editMenu.add(createMenuItem("menuItemClose", KeyEvent.VK_W, e -> closeCurrentTab()));
+        editMenu.add(createMenuItem("menuItemPaste", KeyEvent.VK_V, e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
+            ta.paste();
+            formatJson();
+        })));
         menuBar.add(editMenu);
 
-        toolMenu.setText(resourceMap.getString("toolMenu.text"));
-
-        JMenuItem menuItemLayout = createMenuItem("menuItemLayout", KeyEvent.VK_L);
-        menuItemLayout.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                changeLayout();
-            }
-        });
-        toolMenu.add(menuItemLayout);
-
-
-        JMenuItem menuItemNew = createMenuItem("menuItemNew", KeyEvent.VK_N);
-        menuItemNew.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                addTab("NewTab", true);
-            }
-        });
-        toolMenu.add(menuItemNew);
-
-        JMenuItem menuItemCode = createMenuItem("menuItemCode", KeyEvent.VK_T);
-        menuItemCode.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent evt) {
-                codeChangeAction();
-            }
-        });
-        toolMenu.add(menuItemCode);
-
+        // Tool Menu
+        JMenu toolMenu = createMenu("toolMenu");
+        toolMenu.add(createMenuItem("menuItemLayout", KeyEvent.VK_L, e -> changeLayout()));
+        toolMenu.add(createMenuItem("menuItemNew", KeyEvent.VK_N, e -> addTab("NewTab", true)));
+        toolMenu.add(createMenuItem("menuItemCode", KeyEvent.VK_T, e -> codeChangeAction()));
         menuBar.add(toolMenu);
 
-        helpMenu.setText(resourceMap.getString("helpMenu.text"));
-        helpMenu.setName("helpMenu");
-
-        JMenuItem aboutMenuItem = new JMenuItem();
-        aboutMenuItem.setText(resourceMap.getString("aboutMenu.text"));
-        aboutMenuItem.setName("aboutMenuItem");
-        aboutMenuItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                showAboutBox();
-            }
-        });
+        // Help Menu
+        JMenu helpMenu = createMenu("helpMenu");
+        JMenuItem aboutMenuItem = new JMenuItem(resourceMap.getString("aboutMenu.text"));
+        aboutMenuItem.addActionListener(e -> showAboutBox());
         helpMenu.add(aboutMenuItem);
-
         menuBar.add(helpMenu);
 
         return menuBar;
     }
 
+    private JMenu createMenu(String resourceKey) {
+        JMenu menu = new JMenu();
+        menu.setText(resourceMap.getString(resourceKey + ".text"));
+        menu.setName(resourceKey);
+        return menu;
+    }
+
+    private JMenuItem createMenuItem(String nameKey, int keyCode, ActionListener action) {
+        JMenuItem menuItem = new JMenuItem();
+        menuItem.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.CTRL_MASK));
+        menuItem.setText(resourceMap.getString(nameKey + ".text"));
+        menuItem.addActionListener(action);
+        return menuItem;
+    }
+
+    // --- Tab Management ---
 
     private void initTabbedContainer() {
         TabData tabData = newTabData("Welcome!", "This is a Tab!", null);
@@ -419,6 +222,7 @@ public class MainView extends FrameView {
         tabbedContainer.setForeground(new Color(238, 238, 238));
         tabbedContainer.getSelectionModel().setSelectedIndex(0);
         tabbedContainer.setShowCloseButton(true);
+
         tabDataModel.addComplexListDataListener(new ComplexListDataListener() {
             public void indicesAdded(ComplexListDataEvent clde) {
             }
@@ -432,103 +236,71 @@ public class MainView extends FrameView {
             public void intervalAdded(ListDataEvent e) {
             }
 
+            public void contentsChanged(ListDataEvent e) {
+            }
+
             public void intervalRemoved(ListDataEvent e) {
-                ComplexListDataEvent ce = (ComplexListDataEvent) e;
-                TabData[] tbArr = ce.getAffectedItems();
-                if (tbArr != null && tbArr.length > 0) {
-                    tbArr[0].getText();
-                    JTree tree = getTree(tbArr[0]);
-                    if (tree != null) {
-                        jsonEleTreeMap.remove(tree.hashCode());
+                if (e instanceof ComplexListDataEvent) {
+                    TabData[] tbArr = ((ComplexListDataEvent) e).getAffectedItems();
+                    if (tbArr != null && tbArr.length > 0) {
+                        JTree tree = getTree(tbArr[0]);
+                        if (tree != null) {
+                            jsonEleTreeMap.remove(tree.hashCode());
+                        }
                     }
                 }
             }
-
-            public void contentsChanged(ListDataEvent e) {
-            }
         });
 
-        tabbedContainer.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if ("select".equalsIgnoreCase(e.getActionCommand())) {
-                    treePathLst.clear();
-                }
+        tabbedContainer.addActionListener(e -> {
+            if ("select".equalsIgnoreCase(e.getActionCommand())) {
+                treePathLst.clear();
             }
         });
-
     }
 
-    public void showAboutBox() {
-        if (aboutBox == null) {
-            JFrame mainFrame = MainApp.getApplication().getMainFrame();
-            aboutBox = new MainAboutBox(mainFrame);
-            aboutBox.setLocationRelativeTo(mainFrame);
+    private void closeCurrentTab() {
+        int selIndex = getTabIndex();
+        if (selIndex >= 0) {
+            tabDataModel.removeTab(selIndex);
         }
-        MainApp.getApplication().show(aboutBox);
     }
 
     private TabData newTabData(String tabName, String tabTip, Icon icon) {
-        final JSplitPane splitPane = new JSplitPane();
-        splitPane.addComponentListener(new ComponentListener() {
+        JSplitPane splitPane = new JSplitPane();
+        splitPane.addComponentListener(new ComponentAdapter() {
+            @Override
             public void componentResized(ComponentEvent e) {
                 splitPane.setDividerLocation(0.45);
-            }
-
-            public void componentMoved(ComponentEvent e) {
-            }
-
-            public void componentShown(ComponentEvent e) {
-            }
-
-            public void componentHidden(ComponentEvent e) {
             }
         });
 
         RSyntaxTextArea textArea = newTextArea();
-
-//        textArea.set
         RTextScrollPane sp = new RTextScrollPane(textArea);
         sp.setFoldIndicatorEnabled(true);
         splitPane.setLeftComponent(sp);
-        //splitPane.setLeftComponent(new JScrollPane(textArea));
 
-        final JSplitPane rightSplitPane = new JSplitPane();
-        rightSplitPane.addComponentListener(new ComponentListener() {
+        JSplitPane rightSplitPane = new JSplitPane();
+        rightSplitPane.addComponentListener(new ComponentAdapter() {
+            @Override
             public void componentResized(ComponentEvent e) {
                 int w = rightSplitPane.getWidth();
-                if (w > 500) {
-                    rightSplitPane.setDividerLocation((w - 220) / (w * 1.0f));
-                } else {
-                    rightSplitPane.setDividerLocation(0.8);
-                }
-            }
-
-            public void componentMoved(ComponentEvent e) {
-            }
-
-            public void componentShown(ComponentEvent e) {
-            }
-
-            public void componentHidden(ComponentEvent e) {
+                rightSplitPane.setDividerLocation(w > 500 ? (w - 220) / (float) w : 0.8);
             }
         });
 
         JTree tree = newTree();
-
         rightSplitPane.setLeftComponent(new JScrollPane(tree));
         JTable table = newTable();
         rightSplitPane.setRightComponent(new JScrollPane(table));
 
         splitPane.setRightComponent(rightSplitPane);
-
         return new TabData(splitPane, icon, tabName, tabTip);
     }
 
+    // --- UI Components Generation ---
+
     private RSyntaxTextArea newTextArea() {
-//        JTextArea textArea = new JTextArea();
-//        textArea.setAutoscrolls(true);
-////      textArea.getDocument().addUndoableEditListener(undoMg);
-//        textArea.addMouseListener(new TextAreaMouseListener());
         RSyntaxTextArea textArea = new RSyntaxTextArea();
         textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
         textArea.setCodeFoldingEnabled(true);
@@ -536,16 +308,14 @@ public class MainView extends FrameView {
         textArea.setAutoscrolls(true);
 
         SyntaxScheme scheme = textArea.getSyntaxScheme();
-//        scheme.getStyle(Token.COMMENT_KEYWORD).foreground = Color.red;
-//      scheme.getStyle(Token.DATA_TYPE).foreground = Color.blue;
         scheme.getStyle(Token.LITERAL_STRING_DOUBLE_QUOTE).foreground = Color.BLUE;
         scheme.getStyle(Token.LITERAL_NUMBER_DECIMAL_INT).foreground = new Color(164, 0, 0);
         scheme.getStyle(Token.LITERAL_NUMBER_FLOAT).foreground = new Color(164, 0, 0);
         scheme.getStyle(Token.LITERAL_BOOLEAN).foreground = Color.RED;
         scheme.getStyle(Token.OPERATOR).foreground = Color.BLACK;
+
         textArea.revalidate();
         textArea.addMouseListener(new TextAreaMouseListener());
-
         return textArea;
     }
 
@@ -553,21 +323,15 @@ public class MainView extends FrameView {
         DefaultMutableTreeNode root = new DefaultMutableTreeNode("o-JSON");
         DefaultTreeModel model = new DefaultTreeModel(root);
         JTree tree = new JTree(model);
-        tree.addTreeSelectionListener(new TreeSelectionListener() {
-            public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
-                treeSelection(getTree(), getTable());
-            }
-        });
+        tree.addTreeSelectionListener(evt -> treeSelection(tree, getTable()));
         setNodeIcon(tree);
         tree.addMouseListener(new TreeMouseListener(tree));
         return tree;
     }
 
     private JTable newTable() {
-        String col[] = {"key", "value"};
-        DefaultTableModel tm = new DefaultTableModel();
-        tm.setColumnCount(2);
-        tm.setColumnIdentifiers(col);
+        String[] col = {"key", "value"};
+        DefaultTableModel tm = new DefaultTableModel(col, 0);
         JTable table = new JTable(tm);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setAutoscrolls(true);
@@ -575,36 +339,139 @@ public class MainView extends FrameView {
         return table;
     }
 
+    // --- UI Logic: Tree & Table ---
+
     private void treeSelection(JTree tree, JTable table) {
         DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
         if (selNode == null) {
             return;
         }
-        String col[] = {"key", "value"};
         DefaultTableModel tm = (DefaultTableModel) table.getModel();
         tm.setColumnCount(2);
-        tm.setColumnIdentifiers(col);
+        tm.setColumnIdentifiers(new String[]{"key", "value"});
+
         if (selNode.isLeaf()) {
             tm.setRowCount(1);
-            String arr[] = Kit.pstr(selNode.toString());
+            String[] arr = NodeKit.parseTreeNodeUserObject(selNode.toString());
             tm.setValueAt(arr[1], 0, 0);
             tm.setValueAt(arr[2], 0, 1);
         } else {
             int childCount = selNode.getChildCount();
             tm.setRowCount(childCount);
             for (int i = 0; i < childCount; i++) {
-                String arr[] = Kit.pstr(selNode.getChildAt(i).toString());
+                String[] arr = NodeKit.parseTreeNodeUserObject(selNode.getChildAt(i).toString());
                 tm.setValueAt(arr[1], i, 0);
                 tm.setValueAt(arr[2], i, 1);
             }
         }
-        table.setModel(tm);
-        TableColumn column0 = table.getColumnModel().getColumn(0);
-        column0.setPreferredWidth(getPreferredWidthForColumn(table, column0));
-        TableColumn column1 = table.getColumnModel().getColumn(1);
-        column1.setPreferredWidth(getPreferredWidthForColumn(table, column1));
+
+        adjustColumnWidths(table);
         table.updateUI();
     }
+
+    private void adjustColumnWidths(JTable table) {
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            TableColumn column = table.getColumnModel().getColumn(i);
+            column.setPreferredWidth(getPreferredWidthForColumn(table, column));
+        }
+    }
+
+    // --- JSON Processing Logic ---
+
+    private void createJsonTree(JsonElement obj, DefaultMutableTreeNode pNode) {
+        if (obj.isJsonNull()) {
+            pNode.add(NodeKit.nullNode("NULL"));
+        } else if (obj.isJsonArray()) {
+            createJsonArray(obj.getAsJsonArray(), pNode, "[0]");
+        } else if (obj.isJsonObject()) {
+            createJsonObject(obj.getAsJsonObject(), pNode);
+        } else if (obj.isJsonPrimitive()) {
+            formatJsonPrimitive("PRI", obj.getAsJsonPrimitive(), pNode);
+        }
+    }
+
+    private void createJsonArray(JsonArray arr, DefaultMutableTreeNode pNode, String key) {
+        int index = 0;
+        DefaultMutableTreeNode child = NodeKit.arrayNode(key);
+        for (JsonElement el : arr) {
+            String indexKey = NodeKit.formatIndexKey(index);
+            if (el.isJsonObject()) {
+                DefaultMutableTreeNode node = NodeKit.objectNode(index);
+                createJsonObject(el.getAsJsonObject(), node);
+                child.add(node);
+            } else if (el.isJsonArray()) {
+                createJsonArray(el.getAsJsonArray(), child, indexKey);
+            } else if (el.isJsonNull()) {
+                child.add(NodeKit.nullNode(index));
+            } else if (el.isJsonPrimitive()) {
+                formatJsonPrimitive(indexKey, el.getAsJsonPrimitive(), child);
+            }
+            index++;
+        }
+        pNode.add(child);
+    }
+
+    private void createJsonObject(JsonObject obj, DefaultMutableTreeNode pNode) {
+        for (Map.Entry<String, JsonElement> el : obj.entrySet()) {
+            String key = el.getKey();
+            JsonElement val = el.getValue();
+            if (val.isJsonNull()) {
+                pNode.add(NodeKit.nullNode(key));
+            } else if (val.isJsonArray()) {
+                createJsonArray(val.getAsJsonArray(), pNode, key);
+            } else if (val.isJsonObject()) {
+                DefaultMutableTreeNode node = NodeKit.objectNode(key);
+                createJsonObject(val.getAsJsonObject(), node);
+                pNode.add(node);
+            } else if (val.isJsonPrimitive()) {
+                formatJsonPrimitive(key, val.getAsJsonPrimitive(), pNode);
+            }
+        }
+    }
+
+    private void formatJsonPrimitive(String key, JsonPrimitive pri, DefaultMutableTreeNode pNode) {
+        if (pri.isJsonNull()) {
+            pNode.add(NodeKit.nullNode(key));
+        } else if (pri.isNumber()) {
+            pNode.add(NodeKit.numberNode(key, pri.getAsString()));
+        } else if (pri.isBoolean()) {
+            pNode.add(NodeKit.booleanNode(key, pri.getAsBoolean()));
+        } else if (pri.isString()) {
+            pNode.add(NodeKit.stringNode(key, pri.getAsString()));
+        }
+    }
+
+    private void setNodeIcon(JTree tree) {
+        tree.setCellRenderer(new DefaultTreeCellRenderer() {
+            @Override
+            public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+                super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
+                String tmp = value.toString();
+                // 使用缓存的图标，极大提升渲染性能
+                if (tmp.startsWith(NodeKit.PREFIX_ARRAY)) {
+                    setIcon(iconCache.get("a"));
+                } else if (tmp.startsWith(NodeKit.PREFIX_STRING)) {
+                    setIcon(iconCache.get("v"));
+                } else if (tmp.startsWith(NodeKit.PREFIX_OBJECT)) {
+                    setIcon(iconCache.get("o"));
+                } else if (tmp.startsWith(NodeKit.PREFIX_NUMBER)) {
+                    setIcon(iconCache.get("n"));
+                } else if (tmp.startsWith(NodeKit.PREFIX_NULL)) {
+                    setIcon(iconCache.get("k"));
+                } else if (tmp.startsWith(NodeKit.PREFIX_BOOLEAN)) {
+                    setIcon(iconCache.get("v"));
+                } else {
+                    setIcon(iconCache.get("v"));
+                }
+                if (tmp.length() > 2) {
+                    setText(tmp.substring(2));
+                }
+                return this;
+            }
+        });
+    }
+
+    // --- Helper Methods ---
 
     private int addTab(String tabName, boolean isSel) {
         TabData tabData = newTabData(tabName, tabName, null);
@@ -616,217 +483,89 @@ public class MainView extends FrameView {
         return newIndex;
     }
 
+    private void modifyText(Consumer<JTextArea> action) {
+        Optional.ofNullable(getTextArea()).ifPresent(action);
+    }
+
     private JTextArea getTextArea() {
-        int selIndex = getTabIndex();
-        if (selIndex >= 0) {
-            TabData selTabData = tabDataModel.getTab(selIndex);
-            JSplitPane selSplitPane = (JSplitPane) selTabData.getComponent();
-            JScrollPane sp = (JScrollPane) selSplitPane.getLeftComponent();
-            JViewport vp = (JViewport) sp.getComponent(0);
-            JTextArea ta = (JTextArea) vp.getComponent(0);
-            return ta;
-        }
-        return null;
+        return getComponentFromTab(JTextArea.class, 0);
     }
 
     private JTree getTree(TabData tabData) {
         if (tabData == null) {
             return null;
         }
-        JSplitPane selSplitPane = (JSplitPane) tabData.getComponent();
-        JSplitPane rightSplitPane = (JSplitPane) selSplitPane.getRightComponent();
-        JScrollPane sp = (JScrollPane) rightSplitPane.getLeftComponent();
-        JViewport vp = (JViewport) sp.getComponent(0);
-        JTree t = (JTree) vp.getComponent(0);
-        return t;
-    }
-
-    private JTree getTree(int tabIndex) {
-        if (tabIndex >= 0) {
-            TabData selTabData = tabDataModel.getTab(tabIndex);
-            return getTree(selTabData);
-        }
-        return null;
+        return getComponentFromSplitPane(tabData, JTree.class, true);
     }
 
     private JTree getTree() {
         return getTree(getTabIndex());
     }
 
-    private JTable getTable(int tabIndex) {
-        if (tabIndex >= 0) {
-            TabData selTabData = tabDataModel.getTab(tabIndex);
+    private JTree getTree(int tabIndex) {
+        if (tabIndex < 0) {
+            return null;
+        }
+        return getTree(tabDataModel.getTab(tabIndex));
+    }
+
+    private JTable getTable() {
+        int index = getTabIndex();
+        if (index < 0) {
+            return null;
+        }
+        return getComponentFromSplitPane(tabDataModel.getTab(index), JTable.class, false);
+    }
+
+    // 通用的组件获取方法，减少重复代码
+    @SuppressWarnings("unchecked")
+    private <T> T getComponentFromTab(Class<T> clazz, int viewportIndex) {
+        int selIndex = getTabIndex();
+        if (selIndex >= 0) {
+            TabData selTabData = tabDataModel.getTab(selIndex);
             JSplitPane selSplitPane = (JSplitPane) selTabData.getComponent();
-            JSplitPane rightSplitPane = (JSplitPane) selSplitPane.getRightComponent();
-            JScrollPane sp = (JScrollPane) rightSplitPane.getRightComponent();
-            JViewport vp = (JViewport) sp.getComponent(0);
-            JTable t = (JTable) vp.getComponent(0);
-            return t;
+            JScrollPane sp = (JScrollPane) selSplitPane.getLeftComponent();
+            return (T) sp.getViewport().getView();
         }
         return null;
     }
 
-    private JTable getTable() {
-        return getTable(getTabIndex());
+    @SuppressWarnings("unchecked")
+    private <T> T getComponentFromSplitPane(TabData tabData, Class<T> clazz, boolean isLeftOfRightSplit) {
+        JSplitPane selSplitPane = (JSplitPane) tabData.getComponent();
+        JSplitPane rightSplitPane = (JSplitPane) selSplitPane.getRightComponent();
+        JScrollPane sp = (JScrollPane) (isLeftOfRightSplit ? rightSplitPane.getLeftComponent() : rightSplitPane.getRightComponent());
+        return (T) sp.getViewport().getView();
     }
 
-
-    private String getTabTitle() {
-        return tabDataModel.getTab(getTabIndex()).getText();
+    private int getTabIndex() {
+        return tabbedContainer.getSelectionModel().getSelectedIndex();
     }
 
-    /**
-     * 构造json树结构.
-     *
-     * @param obj   JsonElement
-     * @param pNode DefaultMutableTreeNode
-     */
-    private void createJsonTree(JsonElement obj, DefaultMutableTreeNode pNode) {
-        if (obj.isJsonNull()) {
-            pNode.add(Kit.nullNode("NULL"));
-        } else if (obj.isJsonArray()) {
-            createJsonArray(obj.getAsJsonArray(), pNode, "[0]");
-        } else if (obj.isJsonObject()) {
-            JsonObject child = obj.getAsJsonObject();
-            // DefaultMutableTreeNode node = Kit.objNode(key);
-            createJsonObject(child, pNode);
-            // pNode.add(node);
-        } else if (obj.isJsonPrimitive()) {
-            JsonPrimitive pri = obj.getAsJsonPrimitive();
-            formatJsonPrimitive("PRI", pri, pNode);
+    public void showAboutBox() {
+        if (aboutBox == null) {
+            JFrame mainFrame = MainApp.getApplication().getMainFrame();
+            aboutBox = new MainAboutBox(mainFrame);
+            aboutBox.setLocationRelativeTo(mainFrame);
         }
-    }
-
-
-    /**
-     * 处理json数组.
-     *
-     * @param arr
-     * @param pNode
-     * @param key
-     */
-    private void createJsonArray(JsonArray arr, DefaultMutableTreeNode pNode, String key) {
-        int index = 0;
-        DefaultMutableTreeNode child = Kit.arrNode(key);
-        for (Iterator it = arr.iterator(); it.hasNext(); ) {
-            JsonElement el = (JsonElement) it.next();
-            if (el.isJsonObject()) {
-                JsonObject obj = el.getAsJsonObject();
-                DefaultMutableTreeNode node = Kit.objNode(index);
-                createJsonObject(obj, node);
-                child.add(node);
-            } else if (el.isJsonArray()) {
-                JsonArray lst = el.getAsJsonArray();
-                createJsonArray(lst, child, Kit.fkey(index));
-            } else if (el.isJsonNull()) {
-                child.add(Kit.nullNode(index));
-            } else if (el.isJsonPrimitive()) {
-                formatJsonPrimitive(Kit.fkey(index), el.getAsJsonPrimitive(), child);
-            }
-            ++index;
-        }
-        pNode.add(child);
-    }
-
-    /**
-     * 处理jsoon对象.
-     *
-     * @param obj
-     * @param pNode
-     */
-    private void createJsonObject(JsonObject obj, DefaultMutableTreeNode pNode) {
-        for (Map.Entry<String, JsonElement> el : obj.entrySet()) {
-            String key = el.getKey();
-            JsonElement val = el.getValue();
-            if (val.isJsonNull()) {
-                pNode.add(Kit.nullNode(key));
-            } else if (val.isJsonArray()) {
-                createJsonArray(val.getAsJsonArray(), pNode, key);
-            } else if (val.isJsonObject()) {
-                JsonObject child = val.getAsJsonObject();
-                DefaultMutableTreeNode node = Kit.objNode(key);
-                createJsonObject(child, node);
-                pNode.add(node);
-            } else if (val.isJsonPrimitive()) {
-                JsonPrimitive pri = val.getAsJsonPrimitive();
-                formatJsonPrimitive(key, pri, pNode);
-            }
-        }
-
-    }
-
-    private void formatJsonPrimitive(String key, JsonPrimitive pri, DefaultMutableTreeNode pNode) {
-        if (pri.isJsonNull()) {
-            pNode.add(Kit.nullNode(key));
-        } else if (pri.isNumber()) {
-            pNode.add(Kit.numNode(key, pri.getAsString()));
-        } else if (pri.isBoolean()) {
-            pNode.add(Kit.boolNode(key, pri.getAsBoolean()));
-        } else if (pri.isString()) {
-            pNode.add(Kit.strNode(key, pri.getAsString()));
-        } else if (pri.isJsonArray()) {
-            createJsonArray(pri.getAsJsonArray(), pNode, key);
-        } else if (pri.isJsonObject()) {
-            JsonObject child = pri.getAsJsonObject();
-            DefaultMutableTreeNode node = Kit.objNode(key);
-            createJsonObject(child, node);
-            pNode.add(node);
-        } else if (pri.isJsonPrimitive()) {
-            formatJsonPrimitive(key, pri.getAsJsonPrimitive(), pNode);
-        }
-    }
-
-    private void setNodeIcon(JTree tree) {
-        tree.setCellRenderer(new DefaultTreeCellRenderer() {
-            @Override
-            public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-                super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
-                DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
-                String tmp = node.toString();
-                if (tmp.startsWith(Kit.sArr)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/a.gif")));
-                    this.setText(tmp.substring(2));
-                } else if (tmp.startsWith(Kit.sStr)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/v.gif")));
-                    this.setText(tmp.substring(2));
-                } else if (tmp.startsWith(Kit.sObj)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/o.gif")));
-                    this.setText(tmp.substring(2));
-                } else if (tmp.startsWith(Kit.sNum)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/n.gif")));
-                    this.setText(tmp.substring(2));
-                } else if (tmp.startsWith(Kit.sNull)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/k.gif")));
-                    this.setText(tmp.substring(2));
-                } else if (tmp.startsWith(Kit.sBool)) {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/v.gif")));
-                    this.setText(tmp.substring(2));
-                } else {
-                    this.setIcon(new ImageIcon(getClass().getResource("/images/v.gif")));
-                    this.setText(tmp.substring(2));
-                }
-                return this;
-            }
-        });
+        MainApp.getApplication().show(aboutBox);
     }
 
     private void showMessageDialog(String title, String msg) {
-        if (msg == null) {
-            msg = "";
-        }
-        String ex = "com.google.gson.stream.MalformedJsonException:";
-        int index = msg.indexOf(ex);
-        if (index >= 0) {
-            msg = msg.substring(index + ex.length());
+        if (msg == null) msg = "";
+        String exPrefix = "com.google.gson.stream.MalformedJsonException:";
+        if (msg.contains(exPrefix)) {
+            msg = msg.substring(msg.indexOf(exPrefix) + exPrefix.length());
         }
         ToolTips tip = new ToolTips();
         tip.setToolTip(title + "\n异常信息：" + msg);
     }
 
-    //[start]自动调列宽
+    // --- Table Column Auto-Sizing ---
+
     private int getPreferredWidthForColumn(JTable table, TableColumn col) {
-        int hw = columnHeaderWidth(table, col);  // hw = header width
-        int cw = widestCellInColumn(table, col);  // cw = column width
+        int hw = columnHeaderWidth(table, col);
+        int cw = widestCellInColumn(table, col);
         return Math.max(hw, cw);
     }
 
@@ -838,247 +577,197 @@ public class MainView extends FrameView {
 
     private int widestCellInColumn(JTable table, TableColumn col) {
         int c = col.getModelIndex();
-        int width = 0, maxw = 0;
+        int width, maxw = 0;
         for (int r = 0; r < table.getRowCount(); r++) {
             TableCellRenderer renderer = table.getCellRenderer(r, c);
             Component comp = renderer.getTableCellRendererComponent(table, table.getValueAt(r, c), false, false, r, c);
             width = comp.getPreferredSize().width;
             maxw = Math.max(width, maxw);
         }
-        if (maxw < 90) maxw = 90;
-        return maxw + 10;
-    }
-    //[end]自动调列宽
-
-    private void modifyDialgTitle(JDialog dlg, boolean flag, int n) {
-        String[] tmp = dlg.getTitle().split("-");
-        if (n == -1) {
-            dlg.setTitle(tmp[0] + "-" + "  ==");
-            return;
-        }
-        if (flag) {
-            dlg.setTitle(tmp[0] + "-" + "  找到了^_^");
-        } else {
-            dlg.setTitle(tmp[0] + "-" + "  没找到╮(╯_╰)╭");
-        }
+        return Math.max(maxw, 90) + 10;
     }
 
-    private TreePath expandTreeNode(JTree tree, TreeNode[] arr, Boolean expand) {
-        TreePath[] tp = new TreePath[arr.length];
-        tp[0] = new TreePath(arr[0]);
-        int pos = 0;
-        for (int i = 1; i < arr.length; i++) {
-            tp[i] = tp[i - 1].pathByAddingChild(arr[i]);
-        }
-        for (int i = 0; i < arr.length; i++) {
-            if (expand) {
-                tree.expandPath(tp[i]);
-            } else {
-                tree.collapsePath(tp[i]);
-            }
-            pos = i;
-        }
-        return tp[pos];
-    }
+    // --- Find / Replace Logic ---
 
     private void findTreeChildValue(String findText, List<TreePath> treePathLst) {
         JTree tree = getTree();
+        if (tree == null) {
+            return;
+        }
+
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        Enumeration e = root.depthFirstEnumeration();
+        Enumeration<?> e = root.depthFirstEnumeration();
         treePathLst.clear();
         curPos = 0;
+
         while (e.hasMoreElements()) {
             DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.nextElement();
             if (node.isLeaf()) {
                 String str = node.toString();
-                if (str.substring(2).indexOf(findText) >= 0) {
-                    tree.expandPath(new TreePath(node.getPath()));
-                    TreePath tp = expandTreeNode(tree, node.getPath(), true);
-                    treePathLst.add(tp);
+                if (str.length() > 2 && str.substring(2).contains(findText)) {
+                    treePathLst.add(new TreePath(node.getPath()));
                 }
             }
         }
+
         if (!treePathLst.isEmpty()) {
-            tree.setSelectionPath(treePathLst.get(0));
-            tree.scrollPathToVisible(treePathLst.get(0));
+            expandAndSelectPath(tree, treePathLst.get(0));
         }
-//        return treePathLst;
     }
 
-    /**
-     * 打开查找对话框
-     *
-     * @param type  查找类型（1：文本查找，2树节点查找）
-     * @param title 打开的窗口标题名称
-     */
+    private void expandAndSelectPath(JTree tree, TreePath path) {
+        tree.expandPath(path);
+        tree.setSelectionPath(path);
+        tree.scrollPathToVisible(path);
+    }
+
     private void showFindDialog(final int type, String title) {
         final JDialog openDlg = new JDialog(getFrame());
         openDlg.setTitle(title);
         openDlg.setModal(false);
         openDlg.setSize(500, 70);
         openDlg.setResizable(false);
-        java.awt.Container pane = openDlg.getContentPane();
-        FlowLayout layout = new FlowLayout(FlowLayout.LEFT);
-        pane.setLayout(layout);
+
+        JPanel pane = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        openDlg.setContentPane(pane);
+
         JButton btnFind = new JButton("查找");
         JButton btnNext = new JButton("下一个");
         JButton btnPrev = new JButton("上一个");
         final JTextField textFieldFind = new JTextField(50);
+
         pane.add(textFieldFind);
         pane.add(btnFind);
         pane.add(btnPrev);
         pane.add(btnNext);
-        //从头开始查找
-        btnFind.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                boolean flag = false;
-                modifyDialgTitle(openDlg, flag, -1);
-                if (type == 1) {
-                    flag = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, true);
-                } else {
-                    findTreeChildValue(textFieldFind.getText(), treePathLst);
-                    if (!treePathLst.isEmpty()) flag = true;
-                }
-                modifyDialgTitle(openDlg, flag, 1);
+
+        btnFind.addActionListener(e -> {
+            boolean found = false;
+            updateDialogTitle(openDlg, false, -1);
+            if (type == 1) {
+                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, true);
+            } else {
+                findTreeChildValue(textFieldFind.getText(), treePathLst);
+                if (!treePathLst.isEmpty()) found = true;
             }
-        });
-        //向下查找
-        btnNext.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                boolean flag = false;
-                modifyDialgTitle(openDlg, flag, -1);
-                JTree tree = getTree();
-                if (type == 1) {
-                    flag = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, false);
-                } else {
-                    curPos++;
-                    if (curPos < treePathLst.size()) {
-                        tree.setSelectionPath(treePathLst.get(curPos));
-                        tree.scrollPathToVisible(treePathLst.get(curPos));
-                        flag = true;
-                    } else {
-                        curPos = treePathLst.size() - 1;
-                    }
-                }
-                modifyDialgTitle(openDlg, flag, 1);
-            }
-        });
-        //向上查找
-        btnPrev.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                boolean flag = false;
-                JTree tree = getTree();
-                modifyDialgTitle(openDlg, flag, -1);
-                if (type == 1) {
-                    flag = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, false, false);
-                } else {
-                    curPos--;
-                    if (curPos >= 0) {
-                        tree.setSelectionPath(treePathLst.get(curPos));
-                        tree.scrollPathToVisible(treePathLst.get(curPos));
-                        flag = true;
-                    } else {
-                        curPos = 0;
-                    }
-                }
-                modifyDialgTitle(openDlg, flag, 1);
-            }
+            updateDialogTitle(openDlg, found, 1);
         });
 
-        openDlg.addWindowListener(new WindowListener() {
-            @Override
-            public void windowOpened(WindowEvent e) {
+        btnNext.addActionListener(e -> {
+            boolean found = false;
+            updateDialogTitle(openDlg, false, -1);
+            if (type == 1) {
+                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, false);
+            } else {
+                JTree tree = getTree();
+                curPos++;
+                if (curPos < treePathLst.size()) {
+                    expandAndSelectPath(tree, treePathLst.get(curPos));
+                    found = true;
+                } else {
+                    curPos = treePathLst.size() - 1;
+                }
             }
+            updateDialogTitle(openDlg, found, 1);
+        });
 
+        btnPrev.addActionListener(e -> {
+            boolean found = false;
+            updateDialogTitle(openDlg, false, -1);
+            if (type == 1) {
+                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, false, false);
+            } else {
+                JTree tree = getTree();
+                curPos--;
+                if (curPos >= 0) {
+                    expandAndSelectPath(tree, treePathLst.get(curPos));
+                    found = true;
+                } else {
+                    curPos = 0;
+                }
+            }
+            updateDialogTitle(openDlg, found, 1);
+        });
+
+        openDlg.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 treePathLst.clear();
                 if (type == 1) {
                     isTxtFindDlgOpen = false;
                 } else {
-                    isTreeFinDlgdOpen = false;
+                    isTreeFinDlgOpen = false;
                 }
-            }
-
-            public void windowClosed(WindowEvent e) {
-            }
-
-            public void windowIconified(WindowEvent e) {
-            }
-
-            public void windowDeiconified(WindowEvent e) {
-            }
-
-            public void windowActivated(WindowEvent e) {
-            }
-
-            public void windowDeactivated(WindowEvent e) {
             }
         });
 
         MainApp.getApplication().show(openDlg);
-
         if (type == 1) {
             isTxtFindDlgOpen = true;
         } else {
-            isTreeFinDlgdOpen = true;
+            isTreeFinDlgOpen = true;
         }
     }
 
-    /**
-     * 文本内容查找定位
-     *
-     * @param key        要查找的字符串
-     * @param ignoreCase 是否区分大小写
-     * @param down       查找方向（向上false，向下true）
-     * @param isFirst    是否从开头开始查找
-     * @return
-     */
+    private void updateDialogTitle(JDialog dlg, boolean found, int status) {
+        String baseTitle = dlg.getTitle().split("-")[0];
+        if (status == -1) {
+            dlg.setTitle(baseTitle + "-  ==");
+        } else {
+            dlg.setTitle(baseTitle + (found ? "-  找到了^_^" : "-  没找到╮(╯_╰)╭"));
+        }
+    }
+
     public boolean startSegmentFindOrReplaceOperation(JTextArea textArea, String key, boolean ignoreCase, boolean down, boolean isFirst) {
+        if (textArea == null || key == null || key.isEmpty()) return false;
+
         int length = key.length();
         Document doc = textArea.getDocument();
         int offset = textArea.getCaretPosition();
-        int charsLeft = doc.getLength() - offset;
-        if (charsLeft <= 0) {
+        int docLen = doc.getLength();
+        int charsLeft = docLen - offset;
+
+        if (charsLeft <= 0 || isFirst) {
             offset = 0;
-            charsLeft = doc.getLength() - offset;
+            charsLeft = docLen;
         }
-        if (!down) {
-            offset -= length;
-            offset--;
+
+        if (!down && !isFirst) {
+            offset -= length + 1;
             charsLeft = offset;
         }
-        if (isFirst) {
-            offset = 0;
-            charsLeft = doc.getLength() - offset;
-        }
+
         Segment text = new Segment();
         text.setPartialReturn(true);
+
         try {
             while (charsLeft > 0) {
                 doc.getText(offset, length, text);
-                if ((ignoreCase && text.toString().equalsIgnoreCase(key)) || (!ignoreCase && text.toString().equals(key))) {
-                    textArea.requestFocus();////焦点,才能能看到效果
+                String currentText = text.toString();
+                boolean match = ignoreCase ? currentText.equalsIgnoreCase(key) : currentText.equals(key);
+
+                if (match) {
+                    textArea.requestFocus();
                     textArea.setSelectionStart(offset);
                     textArea.setSelectionEnd(offset + length);
                     return true;
                 }
-                charsLeft--;
+
                 if (down) {
                     offset++;
+                    if (offset + length > docLen) break;
                 } else {
                     offset--;
+                    if (offset < 0) break;
                 }
-
+                charsLeft--;
             }
         } catch (Exception ignored) {
-
         }
         return false;
     }
+
+    // --- Actions ---
 
     private void changeLayout() {
         int selIndex = getTabIndex();
@@ -1087,403 +776,101 @@ public class MainView extends FrameView {
         }
         TabData selTabData = tabDataModel.getTab(selIndex);
         JSplitPane splitPane = (JSplitPane) selTabData.getComponent();
-        if (splitPane.getOrientation() == JSplitPane.VERTICAL_SPLIT) {
-            splitPane.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
-            splitPane.setDividerLocation(0.45);
-        } else {
-            splitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
-            splitPane.setDividerLocation(0.45);
-        }
+        int orient = splitPane.getOrientation() == JSplitPane.VERTICAL_SPLIT ? JSplitPane.HORIZONTAL_SPLIT : JSplitPane.VERTICAL_SPLIT;
+        splitPane.setOrientation(orient);
+        splitPane.setDividerLocation(0.45);
     }
-
-    private class TreeMouseListener implements MouseListener {
-        private JTree tree;
-
-        public TreeMouseListener(JTree tree) {
-            this.tree = tree;
-        }
-
-        @Override
-        public void mouseClicked(MouseEvent e) {
-        }
-
-        @Override
-        public void mousePressed(MouseEvent e) {
-            popupMenu(tree, e);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            popupMenu(tree, e);
-        }
-
-        public void mouseEntered(MouseEvent e) {
-        }
-
-        public void mouseExited(MouseEvent e) {
-        }
-    }
-
-    private void popupMenu(JTree tree, MouseEvent e) {
-        TreePath path = tree.getPathForLocation(e.getX(), e.getY());
-        if (path == null) {
-            return;
-        }
-        tree.setSelectionPath(path);
-        DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-        if (e.isPopupTrigger()) {
-            JPopupMenu popMenu = new JPopupMenu();
-            JMenuItem copyValue = new JMenuItem("复制 键值");
-            JMenuItem copyKey = new JMenuItem("复制 键名");
-            JMenuItem copyPath = new JMenuItem("复制 路径");
-            JMenuItem copyKeyValue = new JMenuItem("复制 键名键值");
-            JMenuItem copyNode = new JMenuItem("复制 节点内容");
-            JMenuItem copyPathAllVal = new JMenuItem("复制 同路径键值");
-            JMenuItem copySingleNodeString = new JMenuItem("复制 MAP式内容");
-            JMenuItem copyNodeFormat = new JMenuItem("复制 节点内容带格式");
-
-            popMenu.add(copyKey);
-            popMenu.add(copyValue);
-            popMenu.add(copyPath);
-            popMenu.add(copyNode);
-            popMenu.add(copyKeyValue);
-            popMenu.add(copySingleNodeString);
-            popMenu.add(copyPathAllVal);
-            popMenu.add(copyNodeFormat);
-            copyKey.addActionListener(new TreeNodeMenuItemActionListener(tree, 1, selNode));
-            copyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 2, selNode));
-            copyKeyValue.addActionListener(new TreeNodeMenuItemActionListener(tree, 3, selNode));
-            copyPath.addActionListener(new TreeNodeMenuItemActionListener(tree, 4, path));
-            copyPathAllVal.addActionListener(new TreeNodeMenuItemActionListener(tree, 5, selNode));
-            copyNode.addActionListener(new TreeNodeMenuItemActionListener(tree, 6, path));
-            copyNodeFormat.addActionListener(new TreeNodeMenuItemActionListener(tree, 7, path));
-            copySingleNodeString.addActionListener(new TreeNodeMenuItemActionListener(tree, 8, selNode));
-            popMenu.show(e.getComponent(), e.getX(), e.getY());
-        }
-    }
-
-    private class TreeNodeMenuItemActionListener implements ActionListener {
-        private int optType;
-        private Object obj;
-        private JTree tree;
-
-        /**
-         * optType 1:key;2:value;3:key value
-         *
-         * @param optType
-         */
-        public TreeNodeMenuItemActionListener(JTree tree, int optType, Object obj) {
-            this.optType = optType;
-            this.obj = obj;
-            this.tree = tree;
-        }
-
-        /**
-         * 复制节点路径.
-         *
-         * @param treePath
-         * @return
-         */
-        public String copyTreeNodePath(TreePath treePath) {
-            String str = "";
-            String s = "";
-            int len = treePath.getPathCount() - 1;
-            for (int i = 0; i <= len; i++) {
-                s = treePath.getPathComponent(i).toString();
-                if (i > 0) str += String.valueOf(dot);
-                if (i == len) {
-                    str += Kit.pstr(s)[1];
-                } else {
-                    str += s.substring(2);
-                }
-            }
-            str = StringUtils.replace(str, String.valueOf(dot) + "[", "[");
-            str = StringUtils.substring(str, 5);
-            return str;
-        }
-
-        /**
-         * 复制相似路径节点键值对.
-         *
-         * @param treeNode
-         * @return
-         */
-        public String copySimilarPathKeyValue(TreeNode treeNode) {
-            String str = "";
-            String key = Kit.pstr(treeNode.toString())[1];
-            TreeNode node = treeNode.getParent();
-            if (node == null) return "";
-            node = node.getParent();
-            if (node == null) return "";
-            int count = node.getChildCount();
-            int size = 0;
-            for (int i = 0; i < count; i++) {
-                TreeNode child = node.getChildAt(i);
-                if (child == null) continue;
-                size = child.getChildCount();
-                for (int i2 = 0; i2 < size; i2++) {
-                    TreeNode tmp = child.getChildAt(i2);
-                    if (tmp == null) continue;
-                    String arr[] = Kit.pstr(tmp.toString());
-                    if (key != null && key.equals(arr[1])) {
-                        str += arr[2] + "\n";
-                    }
-                }
-            }
-            return str;
-        }
-
-        /**
-         * 复制节点内容.
-         *
-         * @param path     节点路径
-         * @param isFormat 是否带格式
-         * @return
-         */
-        private String copyNodeContent(String path, boolean isFormat) {
-            String str = "";
-            String arr[] = StringUtils.split(path, String.valueOf(dot));
-            JsonElement obj = (JsonElement) jsonEleTreeMap.get(tree.hashCode());
-            if (arr.length > 1) {
-                for (int i = 1; i < arr.length; i++) {
-                    int index = Kit.getIndex(arr[i]);
-                    String key = Kit.getKey(arr[i]);
-                    if (obj.isJsonPrimitive()) {
-                        break;
-                    }
-                    if (index == -1) {
-                        obj = obj.getAsJsonObject().get(key);
-                    } else {
-                        obj = obj.getAsJsonObject().getAsJsonArray(key).get(index);
-                    }
-                }
-            }
-            if (obj != null && !obj.isJsonNull()) {
-                GsonBuilder gb = new GsonBuilder();
-                if (isFormat) {
-                    gb.setPrettyPrinting();
-                }
-                gb.serializeNulls();
-                Gson gson = gb.create();
-                str = gson.toJson(obj);
-            }
-            return str;
-        }
-
-        public void actionPerformed(ActionEvent e) {
-            if (obj == null) {
-                return;
-            }
-            StringSelection stringSelection = null;
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            if (optType == 4) {
-                String path = copyTreeNodePath((TreePath) obj);
-                path = StringUtils.replace(path, String.valueOf(dot), ".");
-                stringSelection = new StringSelection(path);
-                clipboard.setContents(stringSelection, null);
-            } else if (optType == 5) {
-                stringSelection = new StringSelection(copySimilarPathKeyValue((TreeNode) obj));
-                clipboard.setContents(stringSelection, null);
-            } else if (optType == 6 || optType == 7) {
-                String path = copyTreeNodePath((TreePath) obj);
-                boolean isForamt = optType == 7;
-                String str = copyNodeContent(path, isForamt);
-                stringSelection = new StringSelection(str);
-                clipboard.setContents(stringSelection, null);
-            } else {
-                String str = obj.toString();
-                String[] arr = Kit.pstr(str);
-                if ("<null>".equals(arr[2])) {
-                    arr[2] = "null";
-                }
-                if (optType == 1 || optType == 2) {
-                    stringSelection = new StringSelection(arr[optType]);
-                } else if (optType == 3) {
-                    stringSelection = new StringSelection(str.substring(2));
-                } else if (optType == 8) {
-                    String temp = "\"" + arr[1] + "\",\"" + arr[2] + "\"";
-                    stringSelection = new StringSelection(temp);
-                }
-                clipboard.setContents(stringSelection, null);
-            }
-        }
-    }//end TreeNodeCopyActionListener
-
-    private class TextAreaMouseListener implements MouseListener {
-
-        public void mouseClicked(MouseEvent e) {
-        }
-
-        public void mousePressed(MouseEvent e) {
-        }
-
-        public void mouseReleased(MouseEvent e) {
-            if (e.isPopupTrigger()) {
-                JPopupMenu popMenu = new JPopupMenu();
-                JMenuItem mtCopy = new JMenuItem(resourceMap.getString("mtCopy.text"));
-                JMenuItem mtPaste = new JMenuItem(resourceMap.getString("mtPaste.text"));
-                JMenuItem mtSelAll = new JMenuItem(resourceMap.getString("mtSelAll.text"));
-                JMenuItem mtClean = new JMenuItem(resourceMap.getString("mtClean.text"));
-
-                popMenu.add(mtCopy);
-                popMenu.add(mtPaste);
-                popMenu.add(mtSelAll);
-                popMenu.add(mtClean);
-                JTextArea ta = getTextArea();
-                if (ta == null || ta.getSelectedText() == null || ta.getSelectedText().isEmpty()) {
-                    mtCopy.setEnabled(false);
-                }
-
-                mtCopy.addActionListener(new TextAreaMenuItemActionListener(1));
-                mtPaste.addActionListener(new TextAreaMenuItemActionListener(2));
-                mtSelAll.addActionListener(new TextAreaMenuItemActionListener(3));
-                mtClean.addActionListener(new TextAreaMenuItemActionListener(4));
-                popMenu.show(e.getComponent(), e.getX(), e.getY());
-            }
-        }
-
-        public void mouseEntered(MouseEvent e) {
-        }
-
-        public void mouseExited(MouseEvent e) {
-        }
-
-    }
-
-    private class TextAreaMenuItemActionListener implements ActionListener {
-        private int optType;
-        private String str;
-
-        /**
-         * optType 1:复制;2:粘帖;3:全选;4:清空
-         *
-         * @param optType
-         */
-        public TextAreaMenuItemActionListener(int optType) {
-            this.optType = optType;
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            if (optType == 1) {
-                getTextArea().copy();
-            } else if (optType == 2) {
-                getTextArea().paste();
-                formatJson();
-            } else if (optType == 3) {
-                getTextArea().selectAll();
-            } else if (optType == 4) {
-                getTextArea().setText("");
-            }
-        }
-    }//end TreeNodeCopyActionListener
-
 
     private void openFileAction(JTextArea textArea) {
-        String title = resourceMap.getString("openDlg.text");
-        java.awt.FileDialog openDlg = new java.awt.FileDialog(getFrame(), title, java.awt.FileDialog.LOAD);
-        openDlg.setVisible(true);
-        File file = new File(openDlg.getDirectory(), openDlg.getFile()); //fc.getSelectedFile();
-        if (file.getPath().isEmpty()) return;
-        BufferedReader reader = null;
-        StringBuilder sb = new StringBuilder();
-        try {
-            InputStreamReader isr = new InputStreamReader(Files.newInputStream(file.toPath()), "GBK");
-            reader = new BufferedReader(isr);
-            String temp = null;
-            while ((temp = reader.readLine()) != null) {
-                sb.append(temp);
-            }
-            reader.close();
-        } catch (IOException ignored) {
-
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException ignored) {
-                }
-            }
+        if (textArea == null) {
+            return;
         }
-        textArea.setText(sb.toString());
-        formatJson();
+        String title = resourceMap.getString("openDlg.text");
+        FileDialog openDlg = new FileDialog(getFrame(), title, FileDialog.LOAD);
+        openDlg.setVisible(true);
+
+        if (openDlg.getFile() == null) {
+            return;
+        }
+        File file = new File(openDlg.getDirectory(), openDlg.getFile());
+
+        // 使用 try-with-resources 和 NIO 优化文件读取
+        try {
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            String content = new String(bytes, Charset.forName(DEFAULT_ENCODING));
+            textArea.setText(content);
+            formatJson();
+        } catch (IOException e) {
+            showMessageDialog("读取失败", e.getMessage());
+        }
+    }
+
+    private void saveFileAction(JTextArea textArea) {
+        if (textArea == null) {
+            return;
+        }
+        String title = resourceMap.getString("closeDlg.text");
+        FileDialog closeDlg = new FileDialog(getFrame(), title, FileDialog.SAVE);
+        closeDlg.setVisible(true);
+
+        if (closeDlg.getFile() == null) {
+            return;
+        }
+        File file = new File(closeDlg.getDirectory(), closeDlg.getFile());
+
+        try (BufferedWriter writer = Files.newBufferedWriter(file.toPath(), Charset.forName(DEFAULT_ENCODING))) {
+            String text = textArea.getText().replace("\n", "\r\n");
+            writer.write(text);
+        } catch (IOException e) {
+            showMessageDialog("保存失败", e.getMessage());
+        }
     }
 
     private void codeChangeAction() {
         JDialog dlg = new JDialog(getFrame(), true);
         dlg.setTitle(resourceMap.getString("menuItemCode.text"));
         dlg.setSize(500, 350);
-        dlg.setMinimumSize(new Dimension(500, 350));
-        JSplitPane spiltPane2 = new JSplitPane();
-        spiltPane2.setDividerLocation(150);
-        spiltPane2.setOrientation(JSplitPane.VERTICAL_SPLIT);
+
+        JSplitPane spiltPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        spiltPane.setDividerLocation(150);
 
         final JTextArea textAreaSrc = new JTextArea();
         final JTextArea textAreaDest = new JTextArea();
         textAreaSrc.setLineWrap(true);
         textAreaDest.setLineWrap(true);
 
-        spiltPane2.setTopComponent(new JScrollPane(textAreaSrc));
-        spiltPane2.setBottomComponent(new JScrollPane(textAreaDest));
+        spiltPane.setTopComponent(new JScrollPane(textAreaSrc));
+        spiltPane.setBottomComponent(new JScrollPane(textAreaDest));
 
         JButton btnOK = new JButton("转换");
-        btnOK.setSize(50, 25);
-        java.awt.Container pane = dlg.getContentPane();
-        BorderLayout layout = new BorderLayout();
-        //layout.addLayoutComponent(spiltPane, BorderLayout.CENTER);
-        // layout.addLayoutComponent(btnOK, BorderLayout.SOUTH);
-        pane.setLayout(layout);
-        pane.add(spiltPane2, BorderLayout.CENTER);
-        pane.add(btnOK, BorderLayout.SOUTH);
 
-        btnOK.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String str = textAreaSrc.getText();
-                str = StringEscapeUtils.unescapeJava(str);
+        dlg.add(spiltPane, BorderLayout.CENTER);
+        dlg.add(btnOK, BorderLayout.SOUTH);
+
+        btnOK.addActionListener(e -> {
+            try {
+                String str = StringEscapeUtils.unescapeJava(textAreaSrc.getText());
                 textAreaDest.setText(str);
+            } catch (Exception ex) {
+                textAreaDest.setText("转换错误: " + ex.getMessage());
             }
         });
         MainApp.getApplication().show(dlg);
-
     }
 
-    private void saveFileAction(JTextArea textArea) {
-        //       JFileChooser open = new JFileChooser();
-        String title = resourceMap.getString("closeDlg.text");
-        java.awt.FileDialog closeDlg = new java.awt.FileDialog(getFrame(), title, java.awt.FileDialog.SAVE);
-        closeDlg.setVisible(true);
-        File file = new File(closeDlg.getDirectory(), closeDlg.getFile());
-        if (file.getPath().isEmpty()) return;
-        BufferedWriter write = null;
-        StringBuilder sb = new StringBuilder();
-        try {
-            OutputStreamWriter osw = new OutputStreamWriter(Files.newOutputStream(file.toPath()), "GBK");
-            write = new BufferedWriter(osw);
-            String text = StringUtils.replace(textArea.getText(), "\n", "\r\n");
-            write.write(text, 0, text.length());
-            write.close();
-        } catch (IOException ignored) {
-
-        } finally {
-            if (write != null) {
-                try {
-                    write.close();
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
+    // --- Json Formatting & Tree Building ---
 
     private void buildTree(JsonElement jsonEle) {
         JTree tree = getTree();
+        if (tree == null) {
+            return;
+        }
         jsonEleTreeMap.put(tree.hashCode(), jsonEle);
-        DefaultMutableTreeNode root = Kit.objNode("JSON");
+        DefaultMutableTreeNode root = NodeKit.objectNode("JSON");
         DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
         try {
             createJsonTree(jsonEle, root);
             model.setRoot(root);
-            setNodeIcon(tree);
         } catch (Exception ex) {
             root.removeAllChildren();
             model.setRoot(root);
@@ -1491,62 +878,248 @@ public class MainView extends FrameView {
         }
     }
 
-    //===================================================json============================
-
     private void processJson(Function<String, Object> jsonProcessor, JSONWriter.Feature... features) {
         JTextArea ta = getTextArea();
+        if (ta == null) {
+            return;
+        }
         String text = ta.getText();
+        if (StringUtils.isBlank(text)) {
+            return;
+        }
         try {
-            // 处理 JSON 逻辑
             Object jsonObject = jsonProcessor.apply(text);
             String formattedText = JSON.toJSONString(jsonObject, features);
             JsonElement jsonEle = JsonParser.parseString(formattedText);
-
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 ta.setText(formattedText);
+                buildTree(jsonEle);
             } else {
-                showMessageDialog("非法JSON字符串！", "是否缺少开始“{”或结束“}”？");
+                showMessageDialog("非法JSON字符串！", "结果为空或格式错误");
             }
-
-            // 创建树节点
-            buildTree(jsonEle);
         } catch (Exception ex) {
             showMessageDialog("非法JSON字符串！", ex.getMessage());
         }
     }
 
-    // 普通格式化
     private void formatJson() {
-        processJson(JSON::parse,
-                JSONWriter.Feature.WriteMapNullValue,
-                JSONWriter.Feature.ReferenceDetection,
-                JSONWriter.Feature.PrettyFormat);
+        processJson(JSON::parse, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.ReferenceDetection, JSONWriter.Feature.PrettyFormat);
     }
 
-    // 排序格式化
     private void sortFormatJson() {
-        processJson(JSON::parse,
-                JSONWriter.Feature.WriteMapNullValue,
-                JSONWriter.Feature.SortMapEntriesByKeys,
-                JSONWriter.Feature.ReferenceDetection,
-                JSONWriter.Feature.PrettyFormat);
+        processJson(JSON::parse, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.SortMapEntriesByKeys, JSONWriter.Feature.ReferenceDetection, JSONWriter.Feature.PrettyFormat);
     }
 
-    // 紧凑格式化
     private void zipFormatJson() {
-        processJson(JSON::parse,
-                JSONWriter.Feature.WriteMapNullValue,
-                JSONWriter.Feature.SortMapEntriesByKeys,
-                JSONWriter.Feature.ReferenceDetection);
+        processJson(JSON::parse, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.SortMapEntriesByKeys, JSONWriter.Feature.ReferenceDetection);
     }
 
-    // 过滤后格式化
     private void filterFormatJson() {
-        processJson(JsonFilter::filterString,
-                JSONWriter.Feature.WriteMapNullValue,
-                JSONWriter.Feature.SortMapEntriesByKeys,
-                JSONWriter.Feature.ReferenceDetection,
-                JSONWriter.Feature.PrettyFormat);
+        processJson(JsonFilter::simpleFilter, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.SortMapEntriesByKeys, JSONWriter.Feature.ReferenceDetection, JSONWriter.Feature.PrettyFormat);
     }
 
+    private void deepParseFormatJson() {
+        processJson(ValueParser::parseAndExpand, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.SortMapEntriesByKeys, JSONWriter.Feature.ReferenceDetection, JSONWriter.Feature.PrettyFormat);
+    }
+
+    // --- Inner Classes for Listeners (Simplified) ---
+
+    private class TreeMouseListener extends MouseAdapter {
+        private final JTree tree;
+
+        public TreeMouseListener(JTree tree) {
+            this.tree = tree;
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            popupMenu(e);
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            popupMenu(e);
+        }
+
+        private void popupMenu(MouseEvent e) {
+            if (!e.isPopupTrigger()) return;
+
+            TreePath path = tree.getPathForLocation(e.getX(), e.getY());
+            if (path == null) return;
+
+            tree.setSelectionPath(path);
+            DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+
+            JPopupMenu popMenu = new JPopupMenu();
+            addTreeMenuItem(popMenu, "复制 键值", 2, selNode);
+            addTreeMenuItem(popMenu, "复制 键名", 1, selNode);
+            addTreeMenuItem(popMenu, "复制 路径", 4, path);
+            addTreeMenuItem(popMenu, "复制 键名键值", 3, selNode);
+            addTreeMenuItem(popMenu, "复制 节点内容", 6, path);
+            addTreeMenuItem(popMenu, "复制 同路径键值", 5, selNode);
+            addTreeMenuItem(popMenu, "复制 MAP式内容", 8, selNode);
+            addTreeMenuItem(popMenu, "复制 节点内容带格式", 7, path);
+
+            popMenu.show(e.getComponent(), e.getX(), e.getY());
+        }
+
+        private void addTreeMenuItem(JPopupMenu menu, String text, int type, Object obj) {
+            JMenuItem item = new JMenuItem(text);
+            item.addActionListener(new TreeNodeMenuItemActionListener(tree, type, obj));
+            menu.add(item);
+        }
+    }
+
+    private class TextAreaMouseListener extends MouseAdapter {
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            if (e.isPopupTrigger()) {
+                JTextArea ta = getTextArea();
+                JPopupMenu popMenu = new JPopupMenu();
+
+                boolean hasSelection = ta != null && ta.getSelectedText() != null && !ta.getSelectedText().isEmpty();
+
+                addMenuItem(popMenu, resourceMap.getString("mtCopy.text"), hasSelection, evt -> Optional.ofNullable(getTextArea()).ifPresent(JTextArea::copy));
+                addMenuItem(popMenu, resourceMap.getString("mtPaste.text"), true, evt -> {
+                    Optional.ofNullable(getTextArea()).ifPresent(JTextArea::paste);
+                    formatJson();
+                });
+                addMenuItem(popMenu, resourceMap.getString("mtSelAll.text"), true, evt -> Optional.ofNullable(getTextArea()).ifPresent(JTextArea::selectAll));
+                addMenuItem(popMenu, resourceMap.getString("mtClean.text"), true, evt -> Optional.ofNullable(getTextArea()).ifPresent(t -> t.setText("")));
+
+                popMenu.show(e.getComponent(), e.getX(), e.getY());
+            }
+        }
+
+        private void addMenuItem(JPopupMenu menu, String text, boolean enabled, ActionListener action) {
+            JMenuItem item = new JMenuItem(text);
+            item.setEnabled(enabled);
+            item.addActionListener(action);
+            menu.add(item);
+        }
+    }
+
+    // 保留 TreeNodeMenuItemActionListener 因为逻辑较复杂，不适合完全 Lambda 化，但进行了清理
+    private class TreeNodeMenuItemActionListener implements ActionListener {
+        private final int optType;
+        private final Object obj;
+        private final JTree tree;
+
+        public TreeNodeMenuItemActionListener(JTree tree, int optType, Object obj) {
+            this.optType = optType;
+            this.obj = obj;
+            this.tree = tree;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (obj == null) return;
+            String content = null;
+
+            switch (optType) {
+                case 1: // Key
+                    content = NodeKit.parseTreeNodeUserObject(obj.toString())[1];
+                    break;
+                case 2: // Value
+                    content = NodeKit.parseTreeNodeUserObject(obj.toString())[2];
+                    break;
+                case 3: // Key Value
+                    content = obj.toString().substring(2);
+                    break;
+                case 4: // Path
+                    String path = copyTreeNodePath((TreePath) obj);
+                    content = path.replace(String.valueOf(DOT), ".");
+                    break;
+                case 5: // Similar Path Values
+                    content = copySimilarPathKeyValue((TreeNode) obj);
+                    break;
+                case 6: // Node Content
+                case 7: // Node Content Formatted
+                    String p = copyTreeNodePath((TreePath) obj);
+                    content = copyNodeContent(p, optType == 7);
+                    break;
+                case 8: // Map Style
+                    String[] arr = NodeKit.parseTreeNodeUserObject(obj.toString());
+                    content = "\"" + arr[1] + "\",\"" + arr[2] + "\"";
+                    break;
+            }
+
+            if (content != null) {
+                if ("<null>".equals(content)) content = "null";
+                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(content), null);
+            }
+        }
+
+        private String copyTreeNodePath(TreePath treePath) {
+            StringBuilder str = new StringBuilder();
+            int len = treePath.getPathCount() - 1;
+            for (int i = 0; i <= len; i++) {
+                String s = treePath.getPathComponent(i).toString();
+                if (i > 0) str.append(DOT);
+                if (i == len) str.append(NodeKit.parseTreeNodeUserObject(s)[1]);
+                else str.append(s.substring(2));
+            }
+            // 简单修复格式
+            String res = str.toString().replace(DOT + "[", "[");
+            return res.length() > 5 ? res.substring(5) : res;
+        }
+
+        private String copySimilarPathKeyValue(TreeNode treeNode) {
+            StringBuilder str = new StringBuilder();
+            String key = NodeKit.parseTreeNodeUserObject(treeNode.toString())[1];
+            TreeNode parent = treeNode.getParent();
+            if (parent != null && parent.getParent() != null) {
+                TreeNode grandParent = parent.getParent();
+                int count = grandParent.getChildCount();
+                for (int i = 0; i < count; i++) {
+                    TreeNode child = grandParent.getChildAt(i);
+                    for (int j = 0; j < child.getChildCount(); j++) {
+                        TreeNode tmp = child.getChildAt(j);
+                        String[] arr = NodeKit.parseTreeNodeUserObject(tmp.toString());
+                        if (key != null && key.equals(arr[1])) {
+                            str.append(arr[2]).append("\n");
+                        }
+                    }
+                }
+            }
+            return str.toString();
+        }
+
+        private String copyNodeContent(String path, boolean isFormat) {
+            String[] arr = StringUtils.split(path, String.valueOf(DOT));
+            JsonElement obj = jsonEleTreeMap.get(tree.hashCode());
+
+            if (obj == null) {
+                return "";
+            }
+
+            try {
+                if (arr.length > 1) {
+                    for (int i = 1; i < arr.length; i++) {
+                        if (obj.isJsonPrimitive()) {
+                            break;
+                        }
+                        String segment = arr[i];
+                        int index = NodeKit.getIndex(segment);
+                        String key = NodeKit.getKey(segment);
+
+                        if (index == -1) {
+                            obj = obj.getAsJsonObject().get(key);
+                        } else {
+                            obj = obj.getAsJsonObject().getAsJsonArray(key).get(index);
+                        }
+                    }
+                }
+                if (obj != null && !obj.isJsonNull()) {
+                    GsonBuilder gb = new GsonBuilder().serializeNulls();
+                    if (isFormat) {
+                        gb.setPrettyPrinting();
+                    }
+                    return gb.create().toJson(obj);
+                }
+            } catch (Exception ignored) {
+            }
+            return "";
+        }
+    }
 }
