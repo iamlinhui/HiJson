@@ -52,7 +52,7 @@ public class MainView extends FrameView {
     private static final String DEFAULT_ENCODING = "UTF-8";
     private static final char DOT = 30;
 
-    // Ô¤¼ÓÔØÍ¼±ê£¬±ÜÃâÔÚ Renderer ÖĞÖØ¸´¼ÓÔØµ¼ÖÂĞÔÄÜÎÊÌâ
+    // é¢„åŠ è½½å›¾æ ‡ï¼Œé¿å…åœ¨ Renderer ä¸­é‡å¤åŠ è½½å¯¼è‡´æ€§èƒ½é—®é¢˜
     private final Map<String, Icon> iconCache = new HashMap<>();
 
     // --- Components ---
@@ -84,7 +84,7 @@ public class MainView extends FrameView {
     }
 
     private void initUI() {
-        // °²È«µØ»ñÈ¡Í¼±ê£¬·ÀÖ¹ NPE
+        // å®‰å…¨åœ°è·å–å›¾æ ‡ï¼Œé˜²æ­¢ NPE
         Icon icon = iconCache.get("json");
         if (icon != null) {
             getFrame().setIconImage(((ImageIcon) icon).getImage());
@@ -103,35 +103,35 @@ public class MainView extends FrameView {
         JTextField textField = new JTextField();
         textField.setMaximumSize(new Dimension(180, 100));
 
-        // Ê¹ÓÃ Helper ·½·¨¼õÉÙÖØ¸´´úÂë
-        toolbar.add(createToolbarButton("ĞÂ±êÇ©(N)", e -> addTab("NewTab", true)));
-        toolbar.add(createToolbarButton("¹Ø±Õ±êÇ©(W)", e -> closeCurrentTab()));
-        toolbar.add(createToolbarButton("¸ñÊ½»¯(F)", e -> formatJson()));
-        toolbar.add(createToolbarButton("ÅÅĞò(G)", e -> sortFormatJson()));
-        toolbar.add(createToolbarButton("Ñ¹Ëõ(H)", e -> zipFormatJson()));
-        toolbar.add(createToolbarButton("È¥¿Õ(B)", e -> filterFormatJson()));
-        toolbar.add(createToolbarButton("½âÎö(X)", e -> deepParseFormatJson()));
-        toolbar.add(createToolbarButton("Çå¿Õ(D)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> ta.setText(""))));
-        toolbar.add(createToolbarButton("Õ³Ìû(V)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
+        // ä½¿ç”¨ Helper æ–¹æ³•å‡å°‘é‡å¤ä»£ç 
+        toolbar.add(createToolbarButton("æ–°æ ‡ç­¾(N)", e -> addTab("NewTab", true)));
+        toolbar.add(createToolbarButton("å…³é—­æ ‡ç­¾(W)", e -> closeCurrentTab()));
+        toolbar.add(createToolbarButton("æ ¼å¼åŒ–(F)", e -> formatJson()));
+        toolbar.add(createToolbarButton("æ’åº(G)", e -> sortFormatJson()));
+        toolbar.add(createToolbarButton("å‹ç¼©(H)", e -> zipFormatJson()));
+        toolbar.add(createToolbarButton("å»ç©º(B)", e -> filterFormatJson()));
+        toolbar.add(createToolbarButton("è§£æ(X)", e -> deepParseFormatJson()));
+        toolbar.add(createToolbarButton("æ¸…ç©º(D)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> ta.setText(""))));
+        toolbar.add(createToolbarButton("ç²˜å¸–(V)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
             ta.paste();
             formatJson();
         })));
-        toolbar.add(createToolbarButton("Çå³ı(\\n)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\n", "")))));
-        toolbar.add(createToolbarButton("Çå³ı(\\)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\\\\", "")))));
-        toolbar.add(createToolbarButton("½Úµã²éÕÒ", e -> {
+        toolbar.add(createToolbarButton("æ¸…é™¤(\\n)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\n", "")))));
+        toolbar.add(createToolbarButton("æ¸…é™¤(\\)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\\\\", "")))));
+        toolbar.add(createToolbarButton("èŠ‚ç‚¹æŸ¥æ‰¾", e -> {
             if (!isTreeFinDlgOpen) {
-                showFindDialog(2, "Ê÷½Úµã²éÕÒ¶Ô»°¿ò");
+                showFindDialog(2, "æ ‘èŠ‚ç‚¹æŸ¥æ‰¾å¯¹è¯æ¡†");
             }
         }));
-        toolbar.add(createToolbarButton("ÎÄ±¾²éÕÒ", e -> {
+        toolbar.add(createToolbarButton("æ–‡æœ¬æŸ¥æ‰¾", e -> {
             if (!isTxtFindDlgOpen) {
-                showFindDialog(1, "ÎÄ±¾²éÕÒ¶Ô»°¿ò");
+                showFindDialog(1, "æ–‡æœ¬æŸ¥æ‰¾å¯¹è¯æ¡†");
             }
         }));
 
         toolbar.addSeparator(new Dimension(30, 20));
         toolbar.add(textField);
-        JButton btnSelTabName = new JButton("±êÇ©ÃûĞŞ¸Ä");
+        JButton btnSelTabName = new JButton("æ ‡ç­¾åä¿®æ”¹");
         btnSelTabName.addActionListener(e -> {
             int selIndex = getTabIndex();
             if (selIndex >= 0) {
@@ -447,7 +447,7 @@ public class MainView extends FrameView {
             public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
                 super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
                 String tmp = value.toString();
-                // Ê¹ÓÃ»º´æµÄÍ¼±ê£¬¼«´óÌáÉıäÖÈ¾ĞÔÄÜ
+                // ä½¿ç”¨ç¼“å­˜çš„å›¾æ ‡ï¼Œæå¤§æå‡æ¸²æŸ“æ€§èƒ½
                 if (tmp.startsWith(NodeKit.PREFIX_ARRAY)) {
                     setIcon(iconCache.get("a"));
                 } else if (tmp.startsWith(NodeKit.PREFIX_STRING)) {
@@ -517,7 +517,7 @@ public class MainView extends FrameView {
         return getComponentFromSplitPane(tabDataModel.getTab(index), JTable.class, false);
     }
 
-    // Í¨ÓÃµÄ×é¼ş»ñÈ¡·½·¨£¬¼õÉÙÖØ¸´´úÂë
+    // é€šç”¨çš„ç»„ä»¶è·å–æ–¹æ³•ï¼Œå‡å°‘é‡å¤ä»£ç 
     @SuppressWarnings("unchecked")
     private <T> T getComponentFromTab(Class<T> clazz, int viewportIndex) {
         int selIndex = getTabIndex();
@@ -558,7 +558,7 @@ public class MainView extends FrameView {
             msg = msg.substring(msg.indexOf(exPrefix) + exPrefix.length());
         }
         ToolTips tip = new ToolTips();
-        tip.setToolTip(title + "\nÒì³£ĞÅÏ¢£º" + msg);
+        tip.setToolTip(title + "\nå¼‚å¸¸ä¿¡æ¯ï¼š" + msg);
     }
 
     // --- Table Column Auto-Sizing ---
@@ -631,9 +631,9 @@ public class MainView extends FrameView {
         JPanel pane = new JPanel(new FlowLayout(FlowLayout.LEFT));
         openDlg.setContentPane(pane);
 
-        JButton btnFind = new JButton("²éÕÒ");
-        JButton btnNext = new JButton("ÏÂÒ»¸ö");
-        JButton btnPrev = new JButton("ÉÏÒ»¸ö");
+        JButton btnFind = new JButton("æŸ¥æ‰¾");
+        JButton btnNext = new JButton("ä¸‹ä¸€ä¸ª");
+        JButton btnPrev = new JButton("ä¸Šä¸€ä¸ª");
         final JTextField textFieldFind = new JTextField(50);
 
         pane.add(textFieldFind);
@@ -714,7 +714,7 @@ public class MainView extends FrameView {
         if (status == -1) {
             dlg.setTitle(baseTitle + "-  ==");
         } else {
-            dlg.setTitle(baseTitle + (found ? "-  ÕÒµ½ÁË^_^" : "-  Ã»ÕÒµ½¨r(¨s_¨t)¨q"));
+            dlg.setTitle(baseTitle + (found ? "-  æ‰¾åˆ°äº†^_^" : "-  æ²¡æ‰¾åˆ°â•®(â•¯_â•°)â•­"));
         }
     }
 
@@ -794,14 +794,14 @@ public class MainView extends FrameView {
         }
         File file = new File(openDlg.getDirectory(), openDlg.getFile());
 
-        // Ê¹ÓÃ try-with-resources ºÍ NIO ÓÅ»¯ÎÄ¼ş¶ÁÈ¡
+        // ä½¿ç”¨ try-with-resources å’Œ NIO ä¼˜åŒ–æ–‡ä»¶è¯»å–
         try {
             byte[] bytes = Files.readAllBytes(file.toPath());
             String content = new String(bytes, Charset.forName(DEFAULT_ENCODING));
             textArea.setText(content);
             formatJson();
         } catch (IOException e) {
-            showMessageDialog("¶ÁÈ¡Ê§°Ü", e.getMessage());
+            showMessageDialog("è¯»å–å¤±è´¥", e.getMessage());
         }
     }
 
@@ -822,7 +822,7 @@ public class MainView extends FrameView {
             String text = textArea.getText().replace("\n", "\r\n");
             writer.write(text);
         } catch (IOException e) {
-            showMessageDialog("±£´æÊ§°Ü", e.getMessage());
+            showMessageDialog("ä¿å­˜å¤±è´¥", e.getMessage());
         }
     }
 
@@ -842,7 +842,7 @@ public class MainView extends FrameView {
         spiltPane.setTopComponent(new JScrollPane(textAreaSrc));
         spiltPane.setBottomComponent(new JScrollPane(textAreaDest));
 
-        JButton btnOK = new JButton("×ª»»");
+        JButton btnOK = new JButton("è½¬æ¢");
 
         dlg.add(spiltPane, BorderLayout.CENTER);
         dlg.add(btnOK, BorderLayout.SOUTH);
@@ -852,7 +852,7 @@ public class MainView extends FrameView {
                 String str = StringEscapeUtils.unescapeJava(textAreaSrc.getText());
                 textAreaDest.setText(str);
             } catch (Exception ex) {
-                textAreaDest.setText("×ª»»´íÎó: " + ex.getMessage());
+                textAreaDest.setText("è½¬æ¢é”™è¯¯: " + ex.getMessage());
             }
         });
         MainApp.getApplication().show(dlg);
@@ -874,7 +874,7 @@ public class MainView extends FrameView {
         } catch (Exception ex) {
             root.removeAllChildren();
             model.setRoot(root);
-            showMessageDialog("´´½¨jsonÊ÷Ê§°Ü£¡", ex.getMessage());
+            showMessageDialog("åˆ›å»ºjsonæ ‘å¤±è´¥ï¼", ex.getMessage());
         }
     }
 
@@ -895,10 +895,10 @@ public class MainView extends FrameView {
                 ta.setText(formattedText);
                 buildTree(jsonEle);
             } else {
-                showMessageDialog("·Ç·¨JSON×Ö·û´®£¡", "½á¹ûÎª¿Õ»ò¸ñÊ½´íÎó");
+                showMessageDialog("éæ³•JSONå­—ç¬¦ä¸²ï¼", "ç»“æœä¸ºç©ºæˆ–æ ¼å¼é”™è¯¯");
             }
         } catch (Exception ex) {
-            showMessageDialog("·Ç·¨JSON×Ö·û´®£¡", ex.getMessage());
+            showMessageDialog("éæ³•JSONå­—ç¬¦ä¸²ï¼", ex.getMessage());
         }
     }
 
@@ -951,14 +951,14 @@ public class MainView extends FrameView {
             DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
 
             JPopupMenu popMenu = new JPopupMenu();
-            addTreeMenuItem(popMenu, "¸´ÖÆ ¼üÖµ", 2, selNode);
-            addTreeMenuItem(popMenu, "¸´ÖÆ ¼üÃû", 1, selNode);
-            addTreeMenuItem(popMenu, "¸´ÖÆ Â·¾¶", 4, path);
-            addTreeMenuItem(popMenu, "¸´ÖÆ ¼üÃû¼üÖµ", 3, selNode);
-            addTreeMenuItem(popMenu, "¸´ÖÆ ½ÚµãÄÚÈİ", 6, path);
-            addTreeMenuItem(popMenu, "¸´ÖÆ Í¬Â·¾¶¼üÖµ", 5, selNode);
-            addTreeMenuItem(popMenu, "¸´ÖÆ MAPÊ½ÄÚÈİ", 8, selNode);
-            addTreeMenuItem(popMenu, "¸´ÖÆ ½ÚµãÄÚÈİ´ø¸ñÊ½", 7, path);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ é”®å€¼", 2, selNode);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ é”®å", 1, selNode);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ è·¯å¾„", 4, path);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ é”®åé”®å€¼", 3, selNode);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ èŠ‚ç‚¹å†…å®¹", 6, path);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ åŒè·¯å¾„é”®å€¼", 5, selNode);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ MAPå¼å†…å®¹", 8, selNode);
+            addTreeMenuItem(popMenu, "å¤åˆ¶ èŠ‚ç‚¹å†…å®¹å¸¦æ ¼å¼", 7, path);
 
             popMenu.show(e.getComponent(), e.getX(), e.getY());
         }
@@ -999,7 +999,7 @@ public class MainView extends FrameView {
         }
     }
 
-    // ±£Áô TreeNodeMenuItemActionListener ÒòÎªÂß¼­½Ï¸´ÔÓ£¬²»ÊÊºÏÍêÈ« Lambda »¯£¬µ«½øĞĞÁËÇåÀí
+    // ä¿ç•™ TreeNodeMenuItemActionListener å› ä¸ºé€»è¾‘è¾ƒå¤æ‚ï¼Œä¸é€‚åˆå®Œå…¨ Lambda åŒ–ï¼Œä½†è¿›è¡Œäº†æ¸…ç†
     private class TreeNodeMenuItemActionListener implements ActionListener {
         private final int optType;
         private final Object obj;
@@ -1045,7 +1045,9 @@ public class MainView extends FrameView {
             }
 
             if (content != null) {
-                if ("<null>".equals(content)) content = "null";
+                if ("<null>".equals(content)) {
+                    content = "null";
+                }
                 Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(content), null);
             }
         }
@@ -1055,11 +1057,16 @@ public class MainView extends FrameView {
             int len = treePath.getPathCount() - 1;
             for (int i = 0; i <= len; i++) {
                 String s = treePath.getPathComponent(i).toString();
-                if (i > 0) str.append(DOT);
-                if (i == len) str.append(NodeKit.parseTreeNodeUserObject(s)[1]);
-                else str.append(s.substring(2));
+                if (i > 0) {
+                    str.append(DOT);
+                }
+                if (i == len) {
+                    str.append(NodeKit.parseTreeNodeUserObject(s)[1]);
+                } else {
+                    str.append(s.substring(2));
+                }
             }
-            // ¼òµ¥ĞŞ¸´¸ñÊ½
+            // ç®€å•ä¿®å¤æ ¼å¼
             String res = str.toString().replace(DOT + "[", "[");
             return res.length() > 5 ? res.substring(5) : res;
         }
