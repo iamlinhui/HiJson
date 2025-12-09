@@ -3,6 +3,8 @@ package hi.chyl.json;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
 import com.google.gson.*;
+import hi.chyl.json.listener.TextAreaMouseListener;
+import hi.chyl.json.listener.TreeMouseListener;
 import hi.chyl.json.utils.JsonFilter;
 import hi.chyl.json.utils.NodeKit;
 import hi.chyl.json.utils.ToolTips;
@@ -32,34 +34,47 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.text.Document;
 import javax.swing.text.Segment;
-import javax.swing.tree.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 import java.awt.*;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * 主界面视图类
+ */
 public class MainView extends FrameView {
 
-    // --- Constants & Resources ---
-    private static final String DEFAULT_ENCODING = "UTF-8";
-    private static final char DOT = 30;
-
-    // 预加载图标，避免在 Renderer 中重复加载导致性能问题
-    private final Map<String, Icon> iconCache = new HashMap<>();
+    // --- Constants ---
+    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+    // 图标资源名称
+    private static final String ICON_JSON = "json";
+    private static final String ICON_ARRAY = "a";
+    private static final String ICON_STRING = "v";
+    private static final String ICON_OBJECT = "o";
+    private static final String ICON_NUMBER = "n";
+    private static final String ICON_NULL = "k";
 
     // --- Components ---
     private JDialog aboutBox;
     private TabDataModel tabDataModel;
     private TabbedContainer tabbedContainer;
-    private final Map<Integer, JsonElement> jsonEleTreeMap = new HashMap<>();
+
+    // 使用 ConcurrentHashMap 增加线程安全性，尽管 Swing 主要在 EDT 运行
+    private final Map<Integer, JsonElement> jsonEleTreeMap = new ConcurrentHashMap<>();
+    private final Map<String, Icon> iconCache = new HashMap<>();
 
     // --- State ---
     private boolean isTxtFindDlgOpen = false;
@@ -76,16 +91,19 @@ public class MainView extends FrameView {
     }
 
     private void preloadIcons() {
-        String[] icons = {"json", "a", "v", "o", "n", "k"};
+        String[] icons = {ICON_JSON, ICON_ARRAY, ICON_STRING, ICON_OBJECT, ICON_NUMBER, ICON_NULL};
         for (String name : icons) {
-            String path = "/images/" + name + (name.equals("json") ? ".png" : ".gif");
-            iconCache.put(name, new ImageIcon(Objects.requireNonNull(getClass().getResource(path))));
+            String path = "/images/" + name + (name.equals(ICON_JSON) ? ".png" : ".gif");
+            try {
+                iconCache.put(name, new ImageIcon(Objects.requireNonNull(getClass().getResource(path))));
+            } catch (NullPointerException e) {
+                System.err.println("Warning: Missing icon resource " + path);
+            }
         }
     }
 
     private void initUI() {
-        // 安全地获取图标，防止 NPE
-        Icon icon = iconCache.get("json");
+        Icon icon = iconCache.get(ICON_JSON);
         if (icon != null) {
             getFrame().setIconImage(((ImageIcon) icon).getImage());
         }
@@ -103,34 +121,26 @@ public class MainView extends FrameView {
         JTextField textField = new JTextField();
         textField.setMaximumSize(new Dimension(180, 100));
 
-        // 使用 Helper 方法减少重复代码
-        toolbar.add(createToolbarButton("新标签(N)", e -> addTab("NewTab", true)));
-        toolbar.add(createToolbarButton("关闭标签(W)", e -> closeCurrentTab()));
-        toolbar.add(createToolbarButton("格式化(F)", e -> formatJson()));
-        toolbar.add(createToolbarButton("排序(G)", e -> sortFormatJson()));
-        toolbar.add(createToolbarButton("压缩(H)", e -> zipFormatJson()));
-        toolbar.add(createToolbarButton("去空(B)", e -> filterFormatJson()));
-        toolbar.add(createToolbarButton("解析(X)", e -> deepParseFormatJson()));
-        toolbar.add(createToolbarButton("清空(D)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> ta.setText(""))));
-        toolbar.add(createToolbarButton("粘帖(V)", e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
+        toolbar.add(createBtn("新标签(N)", e -> addTab("NewTab", true)));
+        toolbar.add(createBtn("关闭标签(W)", e -> closeCurrentTab()));
+        toolbar.add(createBtn("格式化(F)", e -> formatJson()));
+        toolbar.add(createBtn("排序(G)", e -> sortFormatJson()));
+        toolbar.add(createBtn("压缩(H)", e -> zipFormatJson()));
+        toolbar.add(createBtn("去空(B)", e -> filterFormatJson()));
+        toolbar.add(createBtn("解析(X)", e -> deepParseFormatJson()));
+        toolbar.add(createBtn("清空(D)", e -> modifyText(ta -> ta.setText(""))));
+        toolbar.add(createBtn("粘帖(V)", e -> modifyText(ta -> {
             ta.paste();
             formatJson();
         })));
-        toolbar.add(createToolbarButton("清除(\\n)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\n", "")))));
-        toolbar.add(createToolbarButton("清除(\\)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\\\\", "")))));
-        toolbar.add(createToolbarButton("节点查找", e -> {
-            if (!isTreeFinDlgOpen) {
-                showFindDialog(2, "树节点查找对话框");
-            }
-        }));
-        toolbar.add(createToolbarButton("文本查找", e -> {
-            if (!isTxtFindDlgOpen) {
-                showFindDialog(1, "文本查找对话框");
-            }
-        }));
+        toolbar.add(createBtn("清除(\\n)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\n", "")))));
+        toolbar.add(createBtn("清除(\\)", e -> modifyText(ta -> ta.setText(ta.getText().replaceAll("\\\\", "")))));
+        toolbar.add(createBtn("节点查找", e -> showFindDialog(2, "树节点查找对话框")));
+        toolbar.add(createBtn("文本查找", e -> showFindDialog(1, "文本查找对话框")));
 
         toolbar.addSeparator(new Dimension(30, 20));
         toolbar.add(textField);
+
         JButton btnSelTabName = new JButton("标签名修改");
         btnSelTabName.addActionListener(e -> {
             int selIndex = getTabIndex();
@@ -142,9 +152,9 @@ public class MainView extends FrameView {
         return toolbar;
     }
 
-    private JButton createToolbarButton(String text, ActionListener action) {
+    private JButton createBtn(String text, ActionListener l) {
         JButton btn = new JButton(text);
-        btn.addActionListener(action);
+        btn.addActionListener(l);
         return btn;
     }
 
@@ -154,11 +164,11 @@ public class MainView extends FrameView {
         JMenuBar menuBar = new JMenuBar();
         menuBar.setName("menuBar");
 
-        // File Menu
         JMenu fileMenu = createMenu("fileMenu");
         fileMenu.add(createMenuItem("menuItemOpenFile", KeyEvent.VK_O, e -> openFileAction(getTextArea())));
         fileMenu.add(createMenuItem("menuItemSaveFile", KeyEvent.VK_S, e -> saveFileAction(getTextArea())));
 
+        // Exit Action from AppFramework
         JMenuItem exitMenuItem = new JMenuItem();
         ActionMap actionMap = Application.getInstance(MainApp.class).getContext().getActionMap(MainView.class, this);
         exitMenuItem.setAction(actionMap.get("quit"));
@@ -166,7 +176,6 @@ public class MainView extends FrameView {
         fileMenu.add(exitMenuItem);
         menuBar.add(fileMenu);
 
-        // Edit Menu
         JMenu editMenu = createMenu("editMenu");
         editMenu.add(createMenuItem("menuItemClean", KeyEvent.VK_D, e -> modifyText(ta -> ta.setText(""))));
         editMenu.add(createMenuItem("menuItemFormat", KeyEvent.VK_F, e -> formatJson()));
@@ -175,20 +184,18 @@ public class MainView extends FrameView {
         editMenu.add(createMenuItem("menuItemFilter", KeyEvent.VK_B, e -> filterFormatJson()));
         editMenu.add(createMenuItem("menuItemDeepParse", KeyEvent.VK_X, e -> deepParseFormatJson()));
         editMenu.add(createMenuItem("menuItemClose", KeyEvent.VK_W, e -> closeCurrentTab()));
-        editMenu.add(createMenuItem("menuItemPaste", KeyEvent.VK_V, e -> Optional.ofNullable(getTextArea()).ifPresent(ta -> {
+        editMenu.add(createMenuItem("menuItemPaste", KeyEvent.VK_V, e -> modifyText(ta -> {
             ta.paste();
             formatJson();
         })));
         menuBar.add(editMenu);
 
-        // Tool Menu
         JMenu toolMenu = createMenu("toolMenu");
         toolMenu.add(createMenuItem("menuItemLayout", KeyEvent.VK_L, e -> changeLayout()));
         toolMenu.add(createMenuItem("menuItemNew", KeyEvent.VK_N, e -> addTab("NewTab", true)));
         toolMenu.add(createMenuItem("menuItemCode", KeyEvent.VK_T, e -> codeChangeAction()));
         menuBar.add(toolMenu);
 
-        // Help Menu
         JMenu helpMenu = createMenu("helpMenu");
         JMenuItem aboutMenuItem = new JMenuItem(resourceMap.getString("aboutMenu.text"));
         aboutMenuItem.addActionListener(e -> showAboutBox());
@@ -198,19 +205,17 @@ public class MainView extends FrameView {
         return menuBar;
     }
 
-    private JMenu createMenu(String resourceKey) {
+    private JMenu createMenu(String key) {
         JMenu menu = new JMenu();
-        menu.setText(resourceMap.getString(resourceKey + ".text"));
-        menu.setName(resourceKey);
+        menu.setText(resourceMap.getString(key + ".text"));
         return menu;
     }
 
-    private JMenuItem createMenuItem(String nameKey, int keyCode, ActionListener action) {
-        JMenuItem menuItem = new JMenuItem();
-        menuItem.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.CTRL_MASK));
-        menuItem.setText(resourceMap.getString(nameKey + ".text"));
-        menuItem.addActionListener(action);
-        return menuItem;
+    private JMenuItem createMenuItem(String key, int keyCode, ActionListener l) {
+        JMenuItem item = new JMenuItem(resourceMap.getString(key + ".text"));
+        item.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.CTRL_MASK));
+        item.addActionListener(l);
+        return item;
     }
 
     // --- Tab Management ---
@@ -298,7 +303,7 @@ public class MainView extends FrameView {
         return new TabData(splitPane, icon, tabName, tabTip);
     }
 
-    // --- UI Components Generation ---
+    // --- Component Factories ---
 
     private RSyntaxTextArea newTextArea() {
         RSyntaxTextArea textArea = new RSyntaxTextArea();
@@ -315,7 +320,8 @@ public class MainView extends FrameView {
         scheme.getStyle(Token.OPERATOR).foreground = Color.BLACK;
 
         textArea.revalidate();
-        textArea.addMouseListener(new TextAreaMouseListener());
+        // 使用抽离后的 TextAreaMouseListener
+        textArea.addMouseListener(new TextAreaMouseListener(textArea, this::formatJson));
         return textArea;
     }
 
@@ -325,7 +331,8 @@ public class MainView extends FrameView {
         JTree tree = new JTree(model);
         tree.addTreeSelectionListener(evt -> treeSelection(tree, getTable()));
         setNodeIcon(tree);
-        tree.addMouseListener(new TreeMouseListener(tree));
+        // 使用抽离后的 TreeMouseListener，并传入 map 引用
+        tree.addMouseListener(new TreeMouseListener(tree, jsonEleTreeMap));
         return tree;
     }
 
@@ -339,13 +346,13 @@ public class MainView extends FrameView {
         return table;
     }
 
-    // --- UI Logic: Tree & Table ---
+    // --- UI Logic ---
 
     private void treeSelection(JTree tree, JTable table) {
+        if (tree == null || table == null) return;
         DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-        if (selNode == null) {
-            return;
-        }
+        if (selNode == null) return;
+
         DefaultTableModel tm = (DefaultTableModel) table.getModel();
         tm.setColumnCount(2);
         tm.setColumnIdentifiers(new String[]{"key", "value"});
@@ -372,12 +379,32 @@ public class MainView extends FrameView {
     private void adjustColumnWidths(JTable table) {
         for (int i = 0; i < table.getColumnCount(); i++) {
             TableColumn column = table.getColumnModel().getColumn(i);
-            column.setPreferredWidth(getPreferredWidthForColumn(table, column));
+            int hw = columnHeaderWidth(table, column);
+            int cw = widestCellInColumn(table, column);
+            column.setPreferredWidth(Math.max(hw, cw));
         }
+    }
+
+    private int columnHeaderWidth(JTable table, TableColumn col) {
+        TableCellRenderer renderer = table.getTableHeader().getDefaultRenderer();
+        Component comp = renderer.getTableCellRendererComponent(table, col.getHeaderValue(), false, false, 0, 0);
+        return comp.getPreferredSize().width;
+    }
+
+    private int widestCellInColumn(JTable table, TableColumn col) {
+        int c = col.getModelIndex();
+        int maxw = 0;
+        for (int r = 0; r < table.getRowCount(); r++) {
+            TableCellRenderer renderer = table.getCellRenderer(r, c);
+            Component comp = renderer.getTableCellRendererComponent(table, table.getValueAt(r, c), false, false, r, c);
+            maxw = Math.max(comp.getPreferredSize().width, maxw);
+        }
+        return Math.max(maxw, 90) + 10;
     }
 
     // --- JSON Processing Logic ---
 
+    // 递归构建 JTree 节点
     private void createJsonTree(JsonElement obj, DefaultMutableTreeNode pNode) {
         if (obj.isJsonNull()) {
             pNode.add(NodeKit.nullNode("NULL"));
@@ -391,8 +418,8 @@ public class MainView extends FrameView {
     }
 
     private void createJsonArray(JsonArray arr, DefaultMutableTreeNode pNode, String key) {
-        int index = 0;
         DefaultMutableTreeNode child = NodeKit.arrayNode(key);
+        int index = 0;
         for (JsonElement el : arr) {
             String indexKey = NodeKit.formatIndexKey(index);
             if (el.isJsonObject()) {
@@ -447,22 +474,15 @@ public class MainView extends FrameView {
             public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
                 super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
                 String tmp = value.toString();
-                // 使用缓存的图标，极大提升渲染性能
-                if (tmp.startsWith(NodeKit.PREFIX_ARRAY)) {
-                    setIcon(iconCache.get("a"));
-                } else if (tmp.startsWith(NodeKit.PREFIX_STRING)) {
-                    setIcon(iconCache.get("v"));
-                } else if (tmp.startsWith(NodeKit.PREFIX_OBJECT)) {
-                    setIcon(iconCache.get("o"));
-                } else if (tmp.startsWith(NodeKit.PREFIX_NUMBER)) {
-                    setIcon(iconCache.get("n"));
-                } else if (tmp.startsWith(NodeKit.PREFIX_NULL)) {
-                    setIcon(iconCache.get("k"));
-                } else if (tmp.startsWith(NodeKit.PREFIX_BOOLEAN)) {
-                    setIcon(iconCache.get("v"));
-                } else {
-                    setIcon(iconCache.get("v"));
-                }
+                // 根据前缀从缓存获取图标
+                Icon icon = iconCache.get(ICON_STRING); // default
+                if (tmp.startsWith(NodeKit.PREFIX_ARRAY)) icon = iconCache.get(ICON_ARRAY);
+                else if (tmp.startsWith(NodeKit.PREFIX_OBJECT)) icon = iconCache.get(ICON_OBJECT);
+                else if (tmp.startsWith(NodeKit.PREFIX_NUMBER)) icon = iconCache.get(ICON_NUMBER);
+                else if (tmp.startsWith(NodeKit.PREFIX_NULL)) icon = iconCache.get(ICON_NULL);
+
+                if (icon != null) setIcon(icon);
+
                 if (tmp.length() > 2) {
                     setText(tmp.substring(2));
                 }
@@ -471,7 +491,7 @@ public class MainView extends FrameView {
         });
     }
 
-    // --- Helper Methods ---
+    // --- Core Operations ---
 
     private int addTab(String tabName, boolean isSel) {
         TabData tabData = newTabData(tabName, tabName, null);
@@ -487,39 +507,32 @@ public class MainView extends FrameView {
         Optional.ofNullable(getTextArea()).ifPresent(action);
     }
 
+    // Helper methods to get components from current tab
     private JTextArea getTextArea() {
-        return getComponentFromTab(JTextArea.class, 0);
-    }
-
-    private JTree getTree(TabData tabData) {
-        if (tabData == null) {
-            return null;
-        }
-        return getComponentFromSplitPane(tabData, JTree.class, true);
+        return getComponentFromTab(JTextArea.class);
     }
 
     private JTree getTree() {
         return getTree(getTabIndex());
     }
 
+    private JTree getTree(TabData tabData) {
+        return getComponentFromSplitPane(tabData, JTree.class, true);
+    }
+
     private JTree getTree(int tabIndex) {
-        if (tabIndex < 0) {
-            return null;
-        }
+        if (tabIndex < 0) return null;
         return getTree(tabDataModel.getTab(tabIndex));
     }
 
     private JTable getTable() {
         int index = getTabIndex();
-        if (index < 0) {
-            return null;
-        }
+        if (index < 0) return null;
         return getComponentFromSplitPane(tabDataModel.getTab(index), JTable.class, false);
     }
 
-    // 通用的组件获取方法，减少重复代码
     @SuppressWarnings("unchecked")
-    private <T> T getComponentFromTab(Class<T> clazz, int viewportIndex) {
+    private <T> T getComponentFromTab(Class<T> clazz) {
         int selIndex = getTabIndex();
         if (selIndex >= 0) {
             TabData selTabData = tabDataModel.getTab(selIndex);
@@ -532,6 +545,7 @@ public class MainView extends FrameView {
 
     @SuppressWarnings("unchecked")
     private <T> T getComponentFromSplitPane(TabData tabData, Class<T> clazz, boolean isLeftOfRightSplit) {
+        if (tabData == null) return null;
         JSplitPane selSplitPane = (JSplitPane) tabData.getComponent();
         JSplitPane rightSplitPane = (JSplitPane) selSplitPane.getRightComponent();
         JScrollPane sp = (JScrollPane) (isLeftOfRightSplit ? rightSplitPane.getLeftComponent() : rightSplitPane.getRightComponent());
@@ -561,67 +575,13 @@ public class MainView extends FrameView {
         tip.setToolTip(title + "\n异常信息：" + msg);
     }
 
-    // --- Table Column Auto-Sizing ---
+    // --- Find / Replace ---
 
-    private int getPreferredWidthForColumn(JTable table, TableColumn col) {
-        int hw = columnHeaderWidth(table, col);
-        int cw = widestCellInColumn(table, col);
-        return Math.max(hw, cw);
-    }
-
-    private int columnHeaderWidth(JTable table, TableColumn col) {
-        TableCellRenderer renderer = table.getTableHeader().getDefaultRenderer();
-        Component comp = renderer.getTableCellRendererComponent(table, col.getHeaderValue(), false, false, 0, 0);
-        return comp.getPreferredSize().width;
-    }
-
-    private int widestCellInColumn(JTable table, TableColumn col) {
-        int c = col.getModelIndex();
-        int width, maxw = 0;
-        for (int r = 0; r < table.getRowCount(); r++) {
-            TableCellRenderer renderer = table.getCellRenderer(r, c);
-            Component comp = renderer.getTableCellRendererComponent(table, table.getValueAt(r, c), false, false, r, c);
-            width = comp.getPreferredSize().width;
-            maxw = Math.max(width, maxw);
-        }
-        return Math.max(maxw, 90) + 10;
-    }
-
-    // --- Find / Replace Logic ---
-
-    private void findTreeChildValue(String findText, List<TreePath> treePathLst) {
-        JTree tree = getTree();
-        if (tree == null) {
+    private void showFindDialog(final int type, String title) {
+        if ((type == 1 && isTxtFindDlgOpen) || (type == 2 && isTreeFinDlgOpen)) {
             return;
         }
 
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
-        Enumeration<?> e = root.depthFirstEnumeration();
-        treePathLst.clear();
-        curPos = 0;
-
-        while (e.hasMoreElements()) {
-            DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.nextElement();
-            if (node.isLeaf()) {
-                String str = node.toString();
-                if (str.length() > 2 && str.substring(2).contains(findText)) {
-                    treePathLst.add(new TreePath(node.getPath()));
-                }
-            }
-        }
-
-        if (!treePathLst.isEmpty()) {
-            expandAndSelectPath(tree, treePathLst.get(0));
-        }
-    }
-
-    private void expandAndSelectPath(JTree tree, TreePath path) {
-        tree.expandPath(path);
-        tree.setSelectionPath(path);
-        tree.scrollPathToVisible(path);
-    }
-
-    private void showFindDialog(final int type, String title) {
         final JDialog openDlg = new JDialog(getFrame());
         openDlg.setTitle(title);
         openDlg.setModal(false);
@@ -641,107 +601,122 @@ public class MainView extends FrameView {
         pane.add(btnPrev);
         pane.add(btnNext);
 
-        btnFind.addActionListener(e -> {
+        // Define Action Listener for buttons
+        ActionListener listener = e -> {
             boolean found = false;
+            String cmd = e.getActionCommand();
             updateDialogTitle(openDlg, false, -1);
-            if (type == 1) {
-                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, true);
-            } else {
-                findTreeChildValue(textFieldFind.getText(), treePathLst);
-                if (!treePathLst.isEmpty()) found = true;
-            }
-            updateDialogTitle(openDlg, found, 1);
-        });
 
-        btnNext.addActionListener(e -> {
-            boolean found = false;
-            updateDialogTitle(openDlg, false, -1);
-            if (type == 1) {
-                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, true, false);
-            } else {
-                JTree tree = getTree();
-                curPos++;
-                if (curPos < treePathLst.size()) {
-                    expandAndSelectPath(tree, treePathLst.get(curPos));
-                    found = true;
-                } else {
-                    curPos = treePathLst.size() - 1;
+            String text = textFieldFind.getText();
+            if (type == 1) { // Text Search
+                boolean down = !cmd.equals("上一个");
+                boolean isFirst = cmd.equals("查找");
+                found = startSegmentFindOrReplaceOperation(getTextArea(), text, true, down, isFirst);
+            } else { // Tree Search
+                if (cmd.equals("查找")) {
+                    findTreeChildValue(text, treePathLst);
+                    if (!treePathLst.isEmpty()) found = true;
+                } else if (cmd.equals("下一个")) {
+                    JTree tree = getTree();
+                    curPos++;
+                    if (curPos < treePathLst.size()) {
+                        expandAndSelectPath(tree, treePathLst.get(curPos));
+                        found = true;
+                    } else curPos = treePathLst.size() - 1;
+                } else { // 上一个
+                    JTree tree = getTree();
+                    curPos--;
+                    if (curPos >= 0) {
+                        expandAndSelectPath(tree, treePathLst.get(curPos));
+                        found = true;
+                    } else curPos = 0;
                 }
             }
             updateDialogTitle(openDlg, found, 1);
-        });
+        };
 
-        btnPrev.addActionListener(e -> {
-            boolean found = false;
-            updateDialogTitle(openDlg, false, -1);
-            if (type == 1) {
-                found = startSegmentFindOrReplaceOperation(getTextArea(), textFieldFind.getText(), true, false, false);
-            } else {
-                JTree tree = getTree();
-                curPos--;
-                if (curPos >= 0) {
-                    expandAndSelectPath(tree, treePathLst.get(curPos));
-                    found = true;
-                } else {
-                    curPos = 0;
-                }
-            }
-            updateDialogTitle(openDlg, found, 1);
-        });
+        btnFind.addActionListener(listener);
+        btnNext.addActionListener(listener);
+        btnPrev.addActionListener(listener);
 
         openDlg.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 treePathLst.clear();
-                if (type == 1) {
-                    isTxtFindDlgOpen = false;
-                } else {
-                    isTreeFinDlgOpen = false;
-                }
+                if (type == 1) isTxtFindDlgOpen = false;
+                else isTreeFinDlgOpen = false;
             }
         });
 
         MainApp.getApplication().show(openDlg);
-        if (type == 1) {
-            isTxtFindDlgOpen = true;
-        } else {
-            isTreeFinDlgOpen = true;
-        }
+        if (type == 1) isTxtFindDlgOpen = true;
+        else isTreeFinDlgOpen = true;
     }
 
     private void updateDialogTitle(JDialog dlg, boolean found, int status) {
         String baseTitle = dlg.getTitle().split("-")[0];
-        if (status == -1) {
-            dlg.setTitle(baseTitle + "-  ==");
-        } else {
-            dlg.setTitle(baseTitle + (found ? "-  找到了^_^" : "-  没找到╮(╯_╰)╭"));
+        if (status == -1) dlg.setTitle(baseTitle + "-  ==");
+        else dlg.setTitle(baseTitle + (found ? "-  找到了^_^" : "-  没找到╮(╯_╰)╭"));
+    }
+
+    private void findTreeChildValue(String findText, List<TreePath> treePathLst) {
+        JTree tree = getTree();
+        if (tree == null) return;
+
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        Enumeration<?> e = root.depthFirstEnumeration();
+        treePathLst.clear();
+        curPos = 0;
+
+        while (e.hasMoreElements()) {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.nextElement();
+            if (node.isLeaf()) {
+                String str = node.toString();
+                if (str.length() > 2 && str.substring(2).contains(findText)) {
+                    treePathLst.add(new TreePath(node.getPath()));
+                }
+            }
         }
+        if (!treePathLst.isEmpty()) {
+            expandAndSelectPath(tree, treePathLst.get(0));
+        }
+    }
+
+    private void expandAndSelectPath(JTree tree, TreePath path) {
+        if (tree == null) return;
+        tree.expandPath(path);
+        tree.setSelectionPath(path);
+        tree.scrollPathToVisible(path);
     }
 
     public boolean startSegmentFindOrReplaceOperation(JTextArea textArea, String key, boolean ignoreCase, boolean down, boolean isFirst) {
         if (textArea == null || key == null || key.isEmpty()) return false;
 
-        int length = key.length();
         Document doc = textArea.getDocument();
+        int length = key.length();
         int offset = textArea.getCaretPosition();
         int docLen = doc.getLength();
-        int charsLeft = docLen - offset;
 
-        if (charsLeft <= 0 || isFirst) {
-            offset = 0;
-            charsLeft = docLen;
-        }
+        // 逻辑简化：根据方向和是否第一次确定起始位置
+        if (isFirst) offset = 0;
+        else if (!down) offset -= (length + 1);
 
-        if (!down && !isFirst) {
-            offset -= length + 1;
-            charsLeft = offset;
-        }
+        // 边界检查
+        if (offset < 0) offset = 0;
+        if (offset > docLen) offset = docLen;
 
         Segment text = new Segment();
         text.setPartialReturn(true);
 
         try {
-            while (charsLeft > 0) {
+            // 简单循环查找，实际可用 Boyer-Moore 或其他算法优化，但在 UI 线程少量文本即可
+            while (true) {
+                if (down) {
+                    if (offset + length > docLen) break;
+                } else {
+                    if (offset < 0) break;
+                }
+
                 doc.getText(offset, length, text);
                 String currentText = text.toString();
                 boolean match = ignoreCase ? currentText.equalsIgnoreCase(key) : currentText.equals(key);
@@ -753,27 +728,19 @@ public class MainView extends FrameView {
                     return true;
                 }
 
-                if (down) {
-                    offset++;
-                    if (offset + length > docLen) break;
-                } else {
-                    offset--;
-                    if (offset < 0) break;
-                }
-                charsLeft--;
+                if (down) offset++;
+                else offset--;
             }
         } catch (Exception ignored) {
         }
         return false;
     }
 
-    // --- Actions ---
+    // --- File Actions ---
 
     private void changeLayout() {
         int selIndex = getTabIndex();
-        if (selIndex < 0) {
-            return;
-        }
+        if (selIndex < 0) return;
         TabData selTabData = tabDataModel.getTab(selIndex);
         JSplitPane splitPane = (JSplitPane) selTabData.getComponent();
         int orient = splitPane.getOrientation() == JSplitPane.VERTICAL_SPLIT ? JSplitPane.HORIZONTAL_SPLIT : JSplitPane.VERTICAL_SPLIT;
@@ -782,47 +749,36 @@ public class MainView extends FrameView {
     }
 
     private void openFileAction(JTextArea textArea) {
-        if (textArea == null) {
-            return;
-        }
-        String title = resourceMap.getString("openDlg.text");
-        FileDialog openDlg = new FileDialog(getFrame(), title, FileDialog.LOAD);
+        if (textArea == null) return;
+        FileDialog openDlg = new FileDialog(getFrame(), resourceMap.getString("openDlg.text"), FileDialog.LOAD);
         openDlg.setVisible(true);
 
-        if (openDlg.getFile() == null) {
-            return;
-        }
-        File file = new File(openDlg.getDirectory(), openDlg.getFile());
-
-        // 使用 try-with-resources 和 NIO 优化文件读取
-        try {
-            byte[] bytes = Files.readAllBytes(file.toPath());
-            String content = new String(bytes, Charset.forName(DEFAULT_ENCODING));
-            textArea.setText(content);
-            formatJson();
-        } catch (IOException e) {
-            showMessageDialog("读取失败", e.getMessage());
+        if (openDlg.getFile() != null) {
+            File file = new File(openDlg.getDirectory(), openDlg.getFile());
+            try {
+                byte[] bytes = Files.readAllBytes(file.toPath());
+                String content = new String(bytes, DEFAULT_CHARSET);
+                textArea.setText(content);
+                formatJson();
+            } catch (IOException e) {
+                showMessageDialog("读取失败", e.getMessage());
+            }
         }
     }
 
     private void saveFileAction(JTextArea textArea) {
-        if (textArea == null) {
-            return;
-        }
-        String title = resourceMap.getString("closeDlg.text");
-        FileDialog closeDlg = new FileDialog(getFrame(), title, FileDialog.SAVE);
+        if (textArea == null) return;
+        FileDialog closeDlg = new FileDialog(getFrame(), resourceMap.getString("closeDlg.text"), FileDialog.SAVE);
         closeDlg.setVisible(true);
 
-        if (closeDlg.getFile() == null) {
-            return;
-        }
-        File file = new File(closeDlg.getDirectory(), closeDlg.getFile());
-
-        try (BufferedWriter writer = Files.newBufferedWriter(file.toPath(), Charset.forName(DEFAULT_ENCODING))) {
-            String text = textArea.getText().replace("\n", "\r\n");
-            writer.write(text);
-        } catch (IOException e) {
-            showMessageDialog("保存失败", e.getMessage());
+        if (closeDlg.getFile() != null) {
+            File file = new File(closeDlg.getDirectory(), closeDlg.getFile());
+            try (BufferedWriter writer = Files.newBufferedWriter(file.toPath(), DEFAULT_CHARSET)) {
+                String text = textArea.getText().replace("\n", "\r\n");
+                writer.write(text);
+            } catch (IOException e) {
+                showMessageDialog("保存失败", e.getMessage());
+            }
         }
     }
 
@@ -843,7 +799,6 @@ public class MainView extends FrameView {
         spiltPane.setBottomComponent(new JScrollPane(textAreaDest));
 
         JButton btnOK = new JButton("转换");
-
         dlg.add(spiltPane, BorderLayout.CENTER);
         dlg.add(btnOK, BorderLayout.SOUTH);
 
@@ -858,13 +813,12 @@ public class MainView extends FrameView {
         MainApp.getApplication().show(dlg);
     }
 
-    // --- Json Formatting & Tree Building ---
+    // --- JSON Logic ---
 
     private void buildTree(JsonElement jsonEle) {
         JTree tree = getTree();
-        if (tree == null) {
-            return;
-        }
+        if (tree == null) return;
+
         jsonEleTreeMap.put(tree.hashCode(), jsonEle);
         DefaultMutableTreeNode root = NodeKit.objectNode("JSON");
         DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
@@ -880,17 +834,15 @@ public class MainView extends FrameView {
 
     private void processJson(Function<String, Object> jsonProcessor, JSONWriter.Feature... features) {
         JTextArea ta = getTextArea();
-        if (ta == null) {
-            return;
-        }
+        if (ta == null) return;
         String text = ta.getText();
-        if (StringUtils.isBlank(text)) {
-            return;
-        }
+        if (StringUtils.isBlank(text)) return;
+
         try {
             Object jsonObject = jsonProcessor.apply(text);
             String formattedText = JSON.toJSONString(jsonObject, features);
             JsonElement jsonEle = JsonParser.parseString(formattedText);
+
             if (jsonEle != null && !jsonEle.isJsonNull()) {
                 ta.setText(formattedText);
                 buildTree(jsonEle);
@@ -920,213 +872,5 @@ public class MainView extends FrameView {
 
     private void deepParseFormatJson() {
         processJson(ValueParser::parseAndExpand, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.ReferenceDetection, JSONWriter.Feature.PrettyFormat);
-    }
-
-    // --- Inner Classes for Listeners (Simplified) ---
-
-    private class TreeMouseListener extends MouseAdapter {
-        private final JTree tree;
-
-        public TreeMouseListener(JTree tree) {
-            this.tree = tree;
-        }
-
-        @Override
-        public void mousePressed(MouseEvent e) {
-            popupMenu(e);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            popupMenu(e);
-        }
-
-        private void popupMenu(MouseEvent e) {
-            if (!e.isPopupTrigger()) return;
-
-            TreePath path = tree.getPathForLocation(e.getX(), e.getY());
-            if (path == null) return;
-
-            tree.setSelectionPath(path);
-            DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-
-            JPopupMenu popMenu = new JPopupMenu();
-            addTreeMenuItem(popMenu, "复制 键值", 2, selNode);
-            addTreeMenuItem(popMenu, "复制 键名", 1, selNode);
-            addTreeMenuItem(popMenu, "复制 路径", 4, path);
-            addTreeMenuItem(popMenu, "复制 键名键值", 3, selNode);
-            addTreeMenuItem(popMenu, "复制 节点内容", 6, path);
-            addTreeMenuItem(popMenu, "复制 同路径键值", 5, selNode);
-            addTreeMenuItem(popMenu, "复制 MAP式内容", 8, selNode);
-            addTreeMenuItem(popMenu, "复制 节点内容带格式", 7, path);
-
-            popMenu.show(e.getComponent(), e.getX(), e.getY());
-        }
-
-        private void addTreeMenuItem(JPopupMenu menu, String text, int type, Object obj) {
-            JMenuItem item = new JMenuItem(text);
-            item.addActionListener(new TreeNodeMenuItemActionListener(tree, type, obj));
-            menu.add(item);
-        }
-    }
-
-    private class TextAreaMouseListener extends MouseAdapter {
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            if (e.isPopupTrigger()) {
-                JTextArea ta = getTextArea();
-                JPopupMenu popMenu = new JPopupMenu();
-
-                boolean hasSelection = ta != null && ta.getSelectedText() != null && !ta.getSelectedText().isEmpty();
-
-                addMenuItem(popMenu, resourceMap.getString("mtCopy.text"), hasSelection, evt -> Optional.ofNullable(getTextArea()).ifPresent(JTextArea::copy));
-                addMenuItem(popMenu, resourceMap.getString("mtPaste.text"), true, evt -> {
-                    Optional.ofNullable(getTextArea()).ifPresent(JTextArea::paste);
-                    formatJson();
-                });
-                addMenuItem(popMenu, resourceMap.getString("mtSelAll.text"), true, evt -> Optional.ofNullable(getTextArea()).ifPresent(JTextArea::selectAll));
-                addMenuItem(popMenu, resourceMap.getString("mtClean.text"), true, evt -> Optional.ofNullable(getTextArea()).ifPresent(t -> t.setText("")));
-
-                popMenu.show(e.getComponent(), e.getX(), e.getY());
-            }
-        }
-
-        private void addMenuItem(JPopupMenu menu, String text, boolean enabled, ActionListener action) {
-            JMenuItem item = new JMenuItem(text);
-            item.setEnabled(enabled);
-            item.addActionListener(action);
-            menu.add(item);
-        }
-    }
-
-    // 保留 TreeNodeMenuItemActionListener 因为逻辑较复杂，不适合完全 Lambda 化，但进行了清理
-    private class TreeNodeMenuItemActionListener implements ActionListener {
-        private final int optType;
-        private final Object obj;
-        private final JTree tree;
-
-        public TreeNodeMenuItemActionListener(JTree tree, int optType, Object obj) {
-            this.optType = optType;
-            this.obj = obj;
-            this.tree = tree;
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            if (obj == null) return;
-            String content = null;
-
-            switch (optType) {
-                case 1: // Key
-                    content = NodeKit.parseTreeNodeUserObject(obj.toString())[1];
-                    break;
-                case 2: // Value
-                    content = NodeKit.parseTreeNodeUserObject(obj.toString())[2];
-                    break;
-                case 3: // Key Value
-                    content = obj.toString().substring(2);
-                    break;
-                case 4: // Path
-                    String path = copyTreeNodePath((TreePath) obj);
-                    content = path.replace(String.valueOf(DOT), ".");
-                    break;
-                case 5: // Similar Path Values
-                    content = copySimilarPathKeyValue((TreeNode) obj);
-                    break;
-                case 6: // Node Content
-                case 7: // Node Content Formatted
-                    String p = copyTreeNodePath((TreePath) obj);
-                    content = copyNodeContent(p, optType == 7);
-                    break;
-                case 8: // Map Style
-                    String[] arr = NodeKit.parseTreeNodeUserObject(obj.toString());
-                    content = "\"" + arr[1] + "\",\"" + arr[2] + "\"";
-                    break;
-            }
-
-            if (content != null) {
-                if ("<null>".equals(content)) {
-                    content = "null";
-                }
-                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(content), null);
-            }
-        }
-
-        private String copyTreeNodePath(TreePath treePath) {
-            StringBuilder str = new StringBuilder();
-            int len = treePath.getPathCount() - 1;
-            for (int i = 0; i <= len; i++) {
-                String s = treePath.getPathComponent(i).toString();
-                if (i > 0) {
-                    str.append(DOT);
-                }
-                if (i == len) {
-                    str.append(NodeKit.parseTreeNodeUserObject(s)[1]);
-                } else {
-                    str.append(s.substring(2));
-                }
-            }
-            // 简单修复格式
-            String res = str.toString().replace(DOT + "[", "[");
-            return res.length() > 5 ? res.substring(5) : res;
-        }
-
-        private String copySimilarPathKeyValue(TreeNode treeNode) {
-            StringBuilder str = new StringBuilder();
-            String key = NodeKit.parseTreeNodeUserObject(treeNode.toString())[1];
-            TreeNode parent = treeNode.getParent();
-            if (parent != null && parent.getParent() != null) {
-                TreeNode grandParent = parent.getParent();
-                int count = grandParent.getChildCount();
-                for (int i = 0; i < count; i++) {
-                    TreeNode child = grandParent.getChildAt(i);
-                    for (int j = 0; j < child.getChildCount(); j++) {
-                        TreeNode tmp = child.getChildAt(j);
-                        String[] arr = NodeKit.parseTreeNodeUserObject(tmp.toString());
-                        if (key != null && key.equals(arr[1])) {
-                            str.append(arr[2]).append("\n");
-                        }
-                    }
-                }
-            }
-            return str.toString();
-        }
-
-        private String copyNodeContent(String path, boolean isFormat) {
-            String[] arr = StringUtils.split(path, String.valueOf(DOT));
-            JsonElement obj = jsonEleTreeMap.get(tree.hashCode());
-
-            if (obj == null) {
-                return "";
-            }
-
-            try {
-                if (arr.length > 1) {
-                    for (int i = 1; i < arr.length; i++) {
-                        if (obj.isJsonPrimitive()) {
-                            break;
-                        }
-                        String segment = arr[i];
-                        int index = NodeKit.getIndex(segment);
-                        String key = NodeKit.getKey(segment);
-
-                        if (index == -1) {
-                            obj = obj.getAsJsonObject().get(key);
-                        } else {
-                            obj = obj.getAsJsonObject().getAsJsonArray(key).get(index);
-                        }
-                    }
-                }
-                if (obj != null && !obj.isJsonNull()) {
-                    GsonBuilder gb = new GsonBuilder().serializeNulls();
-                    if (isFormat) {
-                        gb.setPrettyPrinting();
-                    }
-                    return gb.create().toJson(obj);
-                }
-            } catch (Exception ignored) {
-            }
-            return "";
-        }
     }
 }
