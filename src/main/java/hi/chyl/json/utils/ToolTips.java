@@ -3,10 +3,13 @@ package hi.chyl.json.utils;
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * 桌面气泡通知/提示框工具类。
  * 使用 JWindow 实现非阻塞、带有动画效果的桌面通知。
+ *
+ * 线程安全：所有 Swing UI 操作都在 EDT 线程中执行。
  */
 public class ToolTips {
 
@@ -116,8 +119,7 @@ public class ToolTips {
 
     /**
      * 负责处理气泡提示框的动画和生命周期。
-     * 注意：由于直接使用 Thread.sleep() 和操作 Swing 组件，
-     * 此类应被视为在非 EDT 线程中执行，这在严格的 Swing 编程中需要谨慎。
+     * 所有 Swing UI 操作都通过 SwingUtilities 在 EDT 线程中执行，确保线程安全。
      */
     class Animation extends Thread {
 
@@ -128,7 +130,15 @@ public class ToolTips {
         }
 
         /**
+         * 在 EDT 线程中设置窗口位置
+         */
+        private void setLocationOnEDT(int x, int y) {
+            SwingUtilities.invokeLater(() -> singleWindow.setLocation(x, y));
+        }
+
+        /**
          * 调用动画效果，垂直移动窗体坐标。
+         * 使用 SwingUtilities.invokeLater() 确保 UI 操作在 EDT 线程执行。
          *
          * @param posX   X坐标
          * @param startY 起始Y坐标
@@ -137,20 +147,23 @@ public class ToolTips {
          */
         private void animateVertically(int posX, int startY, int endY)
                 throws InterruptedException {
-            singleWindow.setLocation(posX, startY);
+            setLocationOnEDT(posX, startY);
+
             if (endY < startY) { // 向上移动
                 for (int i = startY; i > endY; i -= step) {
-                    singleWindow.setLocation(posX, i);
+                    final int y = i;
+                    setLocationOnEDT(posX, y);
                     Thread.sleep(stepTime);
                 }
             } else { // 向下移动
                 for (int i = startY; i < endY; i += step) {
-                    singleWindow.setLocation(posX, i);
+                    final int y = i;
+                    setLocationOnEDT(posX, y);
                     Thread.sleep(stepTime);
                 }
             }
             // 确保最终位置准确
-            singleWindow.setLocation(posX, endY);
+            setLocationOnEDT(posX, endY);
         }
 
         /**
@@ -196,11 +209,19 @@ public class ToolTips {
                 countOfToolTip++;
                 maxToolTip++;
 
-                // 窗体初始化和显示
-                singleWindow.setLocation(posX, startYPosition);
-                singleWindow.setVisible(true);
-                if (useTop) {
-                    singleWindow.setAlwaysOnTop(true);
+                // 窗体初始化和显示 - 在 EDT 线程中执行
+                final int finalPosX = posX;
+                final int finalStartY = startYPosition;
+                try {
+                    SwingUtilities.invokeAndWait(() -> {
+                        singleWindow.setLocation(finalPosX, finalStartY);
+                        singleWindow.setVisible(true);
+                        if (useTop) {
+                            singleWindow.setAlwaysOnTop(true);
+                        }
+                    });
+                } catch (InvocationTargetException e) {
+                    throw new RuntimeException(e);
                 }
 
                 // 动画：滑入
@@ -216,10 +237,12 @@ public class ToolTips {
                 // 异常处理，例如中断，需要确保资源释放
                 System.err.println("ToolTip Animation Error: " + e.getMessage());
             } finally {
-                // 确保无论如何都释放资源和更新计数器
+                // 确保无论如何都释放资源和更新计数器 - 在 EDT 线程中执行
                 countOfToolTip--;
-                singleWindow.setVisible(false);
-                singleWindow.dispose();
+                SwingUtilities.invokeLater(() -> {
+                    singleWindow.setVisible(false);
+                    singleWindow.dispose();
+                });
             }
         }
     }
@@ -233,12 +256,15 @@ public class ToolTips {
      * @param msg  必填的消息内容。
      */
     public void setToolTip(Icon icon, String msg) {
-        ToolTipSingle single = new ToolTipSingle();
-        if (icon != null) {
-            single.iconLabel.setIcon(icon);
-        }
-        single.messageArea.setText(msg);
-        single.animate();
+        // 确保在 EDT 线程中创建 UI 组件
+        SwingUtilities.invokeLater(() -> {
+            ToolTipSingle single = new ToolTipSingle();
+            if (icon != null) {
+                single.iconLabel.setIcon(icon);
+            }
+            single.messageArea.setText(msg);
+            single.animate();
+        });
     }
 
     /**
