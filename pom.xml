@@ -56,7 +56,6 @@
                     <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
                     <fork>true</fork>
-                    <executable>C:/Program Files/Java/jdk-1.8/bin/javac</executable>
                 </configuration>
             </plugin>
             <plugin>
