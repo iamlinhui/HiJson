@@ -52,11 +52,16 @@
 
         /* Toolbar */
         .toolbar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-        .toolbar button { padding: 4px 10px; border: 1px solid var(--border-btn); background: var(--bg-button); color: var(--text-primary); border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; }
-        .toolbar button:hover { background: var(--bg-button-hover); }
-        .toolbar button:active { background: var(--border-btn); }
+        /* Shared dropdown caret for the Edit button and the theme/locale selects. */
+        .toolbar button, .toolbar select {
+            --menu-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23969696'/></svg>");
+            padding: 4px 10px; border: 1px solid var(--border-btn); background-color: var(--bg-button); color: var(--text-primary); border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; height: 26px; box-sizing: border-box; line-height: 1;
+        }
+        .toolbar button:hover, .toolbar select:hover { background-color: var(--bg-button-hover); }
+        .toolbar button:active { background-color: var(--border-btn); }
+        .toolbar button.has-menu { padding-right: 26px; background-image: var(--menu-arrow); background-repeat: no-repeat; background-position: right 9px center; }
         .toolbar .separator { width: 1px; height: 20px; background: var(--border-btn); margin: 0 6px; }
-        .toolbar select { padding: 3px 6px; border: 1px solid var(--border-btn); background: var(--bg-button); color: var(--text-primary); border-radius: 3px; font-size: 12px; cursor: pointer; }
+        .toolbar select { padding: 4px 26px 4px 8px; -webkit-appearance: none; appearance: none; background-image: var(--menu-arrow); background-repeat: no-repeat; background-position: right 9px center; }
 
         /* Tabs */
         .tab-bar { display: flex; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); overflow-x: auto; }
@@ -106,6 +111,7 @@
         .search-bar button { padding: 4px 10px; border: 1px solid var(--border-btn); background: var(--bg-button); color: var(--text-primary); border-radius: 3px; cursor: pointer; font-size: 12px; }
         .search-bar .result { font-size: 12px; color: var(--text-secondary); min-width: 80px; }
         .search-bar label { font-size: 12px; color: var(--text-secondary); margin-left: 8px; }
+        .search-bar .mode-toggle { margin-left: 8px; font-style: normal; border-style: dashed; }
 
         /* Context Menu */
         .context-menu { position: fixed; background: var(--bg-secondary); border: 1px solid var(--border-btn); border-radius: 4px; padding: 4px 0; z-index: 10000; min-width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
@@ -124,47 +130,47 @@
 </head>
 <body>
     <div class="toolbar" id="toolbar">
-        <button onclick="addTab()">新标签(N)</button>
+        <button onclick="addTab()" data-i18n="tab.new">新标签(N)</button>
         <div class="separator"></div>
-        <button onclick="doFormat()">格式化(F)</button>
-        <button onclick="doSortFormat()">排序(G)</button>
-        <button onclick="doCompress()">压缩(H)</button>
-        <button onclick="doFilter()">去空(B)</button>
-        <button onclick="doDeepParse()">解析(X)</button>
+        <button onclick="doFormat()" data-i18n="op.format">格式化(F)</button>
+        <button onclick="doSortFormat()" data-i18n="op.sort">排序(G)</button>
+        <button onclick="doCompress()" data-i18n="op.compress">压缩(H)</button>
+        <button onclick="doFilter()" data-i18n="op.filter">去空(B)</button>
+        <button onclick="doDeepParse()" data-i18n="op.deep">解析(X)</button>
         <div class="separator"></div>
-        <button onclick="doClear()">清空(D)</button>
-        <button onclick="doPaste()">粘帖(V)</button>
-        <button onclick="doRemoveNewlines()">清除(\n)</button>
-        <button onclick="doRemoveBackslashes()">清除(\)</button>
+        <button class="has-menu" onclick="showEditMenu(event)" data-i18n="op.edit">编辑</button>
         <div class="separator"></div>
-        <button onclick="toggleSearch('text')">文本查找</button>
-        <button onclick="toggleSearch('tree')">节点查找</button>
+        <button onclick="toggleSearch()" data-i18n="search.find">查找(C)</button>
         <div class="separator"></div>
-        <button onclick="doOpenFile()">打开文件</button>
-        <button onclick="doSaveFile()">保存文件</button>
+        <button onclick="doOpenFile()" data-i18n="file.open">打开文件</button>
+        <button onclick="doSaveFile()" data-i18n="file.save">保存文件</button>
         <div class="separator"></div>
         <select onchange="setTheme(this.value)" id="themeSelect">
-            <option value="dark">暗色主题</option>
-            <option value="light">亮色主题</option>
+            <option value="dark" data-i18n="theme.dark">暗色主题</option>
+            <option value="light" data-i18n="theme.light">亮色主题</option>
+        </select>
+        <select onchange="setLocale(this.value)" id="localeSelect">
+            <option value="zh-CN" data-i18n="locale.zh">简体中文</option>
+            <option value="en" data-i18n="locale.en">English</option>
         </select>
     </div>
 
     <div class="tab-bar" id="tabBar"></div>
 
     <div class="search-bar" id="searchBar">
-        <input type="text" id="searchInput" placeholder="查找内容..." onkeydown="if(event.key==='Enter')doSearch()">
-        <button onclick="doSearch()">查找</button>
-        <button onclick="doSearchPrev()">上一个</button>
-        <button onclick="doSearchNext()">下一个</button>
-        <button onclick="closeSearch()">关闭</button>
+        <input type="text" id="searchInput" data-i18n-ph="search.placeholder" placeholder="查找内容..." onkeydown="if(event.key==='Enter')doSearch()">
+        <button onclick="doSearch()" data-i18n="search.btn">查找</button>
+        <button onclick="doSearchPrev()" data-i18n="search.prev">上一个</button>
+        <button onclick="doSearchNext()" data-i18n="search.next">下一个</button>
+        <button onclick="closeSearch()" data-i18n="search.close">关闭</button>
         <span class="result" id="searchResult"></span>
-        <label id="searchModeLabel">文本查找</label>
+        <button id="searchModeBtn" class="mode-toggle" onclick="toggleSearchMode()" data-i18n="search.modeText">文本查找</button>
     </div>
 
     <div class="main" id="mainArea">
         <div class="editor-pane" id="editorPane">
             <div class="editor-container">
-                <textarea id="editor" spellcheck="false" placeholder="在此粘贴或输入JSON..." oncontextmenu="showEditorContextMenu(event)"></textarea>
+                <textarea id="editor" spellcheck="false" data-i18n-ph="editor.placeholder" placeholder="在此粘贴或输入JSON..." oncontextmenu="showEditorContextMenu(event)"></textarea>
             </div>
         </div>
         <div class="resizer" id="resizer"></div>
@@ -172,7 +178,7 @@
             <div class="tree-container" id="treeContainer"></div>
             <div class="table-container" id="tableContainer">
                 <table>
-                    <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                    <thead><tr><th data-i18n="table.key">Key</th><th data-i18n="table.value">Value</th></tr></thead>
                     <tbody id="tableBody"></tbody>
                 </table>
             </div>
@@ -180,7 +186,7 @@
     </div>
 
     <div class="toast" id="toast"></div>
-    <div class="drop-overlay" id="dropOverlay">拖放JSON文件到此处</div>
+    <div class="drop-overlay" id="dropOverlay" data-i18n="drop.overlay">拖放JSON文件到此处</div>
 
     <script>
     // --- State ---
@@ -195,6 +201,86 @@
     let currentJsonData = null;
     let selectedTreeNode = null;
 
+    // --- i18n ---
+    const translations = {
+        'zh-CN': {
+            'tab.new': '新标签(N)', 'op.format': '格式化(F)', 'op.sort': '排序(G)',
+            'op.compress': '压缩(H)', 'op.filter': '去空(B)', 'op.deep': '解析(E)',
+            'op.clear': '清空(D)', 'op.paste': '粘帖(V)', 'op.rmNewlines': '清除(\\n)',
+            'op.rmBackslashes': '清除(\\)', 'op.edit': '编辑', 'op.unescape': '去转义', 'op.smartUnwrap': '智能展开',
+            'search.text': '文本查找', 'search.node': '节点查找', 'search.find': '查找',
+            'file.open': '打开文件', 'file.save': '保存文件',
+            'theme.dark': '暗色主题', 'theme.light': '亮色主题',
+            'locale.zh': '简体中文', 'locale.en': 'English',
+            'search.placeholder': '查找内容...', 'search.btn': '查找', 'search.prev': '上一个',
+            'search.next': '下一个', 'search.close': '关闭',
+            'search.modeText': '文本查找', 'search.modeNode': '节点查找',
+            'editor.placeholder': '在此粘贴或输入JSON...',
+            'table.key': 'Key', 'table.value': 'Value',
+            'tree.buildError': '无法构建树结构', 'drop.overlay': '拖放JSON文件到此处',
+            'ctx.copyKey': '复制 键名', 'ctx.copyValue': '复制 键值', 'ctx.copyKeyValue': '复制 键名:键值',
+            'ctx.copyPath': '复制 路径', 'ctx.copyNode': '复制 节点内容', 'ctx.copyNodePretty': '复制 节点内容(格式化)',
+            'ctx.copy': '复制', 'ctx.pasteFormat': '粘帖并格式化', 'ctx.selectAll': '全选', 'ctx.clear': '清空',
+            'toast.invalidJson': '非法JSON: ', 'toast.notFound': '没找到',
+            'tab.welcome': 'Welcome', 'tab.default': '新标签'
+        },
+        'en': {
+            'tab.new': 'New Tab(N)', 'op.format': 'Format(F)', 'op.sort': 'Sort(G)',
+            'op.compress': 'Compress(H)', 'op.filter': 'Filter(B)', 'op.deep': 'Parse(E)',
+            'op.clear': 'Clear(D)', 'op.paste': 'Paste(V)', 'op.rmNewlines': 'Remove (\\n)',
+            'op.rmBackslashes': 'Remove (\\)', 'op.edit': 'Edit', 'op.unescape': 'Unescape', 'op.smartUnwrap': 'Smart Unwrap',
+            'search.text': 'Find Text', 'search.node': 'Find Node', 'search.find': 'Find',
+            'file.open': 'Open File', 'file.save': 'Save File',
+            'theme.dark': 'Dark Theme', 'theme.light': 'Light Theme',
+            'locale.zh': '简体中文', 'locale.en': 'English',
+            'search.placeholder': 'Find...', 'search.btn': 'Find', 'search.prev': 'Previous',
+            'search.next': 'Next', 'search.close': 'Close',
+            'search.modeText': 'Text Search', 'search.modeNode': 'Node Search',
+            'editor.placeholder': 'Paste or type JSON here...',
+            'table.key': 'Key', 'table.value': 'Value',
+            'tree.buildError': 'Failed to build tree', 'drop.overlay': 'Drop JSON file here',
+            'ctx.copyKey': 'Copy Key', 'ctx.copyValue': 'Copy Value', 'ctx.copyKeyValue': 'Copy Key:Value',
+            'ctx.copyPath': 'Copy Path', 'ctx.copyNode': 'Copy Node', 'ctx.copyNodePretty': 'Copy Node (Formatted)',
+            'ctx.copy': 'Copy', 'ctx.pasteFormat': 'Paste & Format', 'ctx.selectAll': 'Select All', 'ctx.clear': 'Clear',
+            'toast.invalidJson': 'Invalid JSON: ', 'toast.notFound': 'No matches',
+            'tab.welcome': 'Welcome', 'tab.default': 'New Tab'
+        }
+    };
+    let currentLocale = 'zh-CN';
+
+    function t(key) {
+        const tbl = translations[currentLocale] || translations['zh-CN'];
+        return tbl[key] !== undefined ? tbl[key] : (translations['zh-CN'][key] !== undefined ? translations['zh-CN'][key] : key);
+    }
+
+    function setLocale(locale) {
+        if (!translations[locale]) return;
+        currentLocale = locale;
+        localStorage.setItem('hijson-locale', locale);
+        document.documentElement.setAttribute('lang', locale);
+        const sel = document.getElementById('localeSelect');
+        if (sel) sel.value = locale;
+        renderUI();
+        // Notify backend so error messages and dialogs follow the language.
+        if (window.go && window.go.main && window.go.main.App && window.go.main.App.SetLocale) {
+            window.go.main.App.SetLocale(locale);
+        }
+    }
+
+    function renderUI() {
+        document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+        document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+    }
+
+    function loadLocale() {
+        const saved = localStorage.getItem('hijson-locale') || 'zh-CN';
+        currentLocale = saved;
+        document.documentElement.setAttribute('lang', saved);
+        const sel = document.getElementById('localeSelect');
+        if (sel) sel.value = saved;
+        renderUI();
+    }
+
     // --- Tab Management ---
     function createTabData(name) {
         return { id: tabIdCounter++, name: name, content: '', treeHtml: '', jsonData: null };
@@ -202,7 +288,7 @@
 
     function addTab(name) {
         saveTabContent();
-        const tab = createTabData(name || 'NewTab');
+        const tab = createTabData(name || t('tab.default'));
         tabs.push(tab);
         activeTabId = tab.id;
         renderTabs();
@@ -214,7 +300,7 @@
 
     function closeCurrentTab() {
         if (tabs.length <= 1) return;
-        const idx = tabs.findIndex(t => t.id === activeTabId);
+        const idx = tabs.findIndex(tab => tab.id === activeTabId);
         tabs.splice(idx, 1);
         activeTabId = tabs[Math.min(idx, tabs.length - 1)].id;
         renderTabs();
@@ -231,7 +317,7 @@
     }
 
     function saveTabContent() {
-        const tab = tabs.find(t => t.id === activeTabId);
+        const tab = tabs.find(tab => tab.id === activeTabId);
         if (tab) {
             tab.content = getEditor().value;
             tab.treeHtml = document.getElementById('treeContainer').innerHTML;
@@ -240,7 +326,7 @@
     }
 
     function loadTabContent() {
-        const tab = tabs.find(t => t.id === activeTabId);
+        const tab = tabs.find(tab => tab.id === activeTabId);
         if (tab) {
             getEditor().value = tab.content || '';
             document.getElementById('treeContainer').innerHTML = '';
@@ -255,17 +341,17 @@
 
     function renderTabs() {
         const bar = document.getElementById('tabBar');
-        bar.innerHTML = tabs.map(t => `
-            <div class="tab ${t.id === activeTabId ? 'active' : ''}" onclick="switchTab(${t.id})">
-                <span>${escHtml(t.name)}</span>
-                <span class="close-btn" onclick="event.stopPropagation();closeTab(${t.id})">×</span>
+        bar.innerHTML = tabs.map(tab => `
+            <div class="tab ${tab.id === activeTabId ? 'active' : ''}" onclick="switchTab(${tab.id})">
+                <span>${escHtml(tab.name)}</span>
+                <span class="close-btn" onclick="event.stopPropagation();closeTab(${tab.id})">×</span>
             </div>
         `).join('');
     }
 
     function closeTab(id) {
         if (tabs.length <= 1) return;
-        const idx = tabs.findIndex(t => t.id === id);
+        const idx = tabs.findIndex(tab => tab.id === id);
         tabs.splice(idx, 1);
         if (id === activeTabId) {
             activeTabId = tabs[Math.min(idx, tabs.length - 1)].id;
@@ -317,7 +403,7 @@
             getEditor().value = result.text;
             buildTree(result.text);
         } else {
-            showToast('非法JSON: ' + result.error);
+            showToast(t('toast.invalidJson') + result.error);
         }
     }
 
@@ -348,12 +434,36 @@
         getEditor().value = getEditor().value.replace(/\\/g, '');
     }
 
+    async function doUnescapeDeep() {
+        const text = getEditor().value;
+        if (!text.trim()) return;
+        const result = await window.go.main.App.UnescapeDeepJSON(text);
+        if (result.success) {
+            getEditor().value = result.text;
+            buildTree(result.text);
+        } else {
+            showToast(result.error);
+        }
+    }
+
+    async function doSmartUnwrap() {
+        const text = getEditor().value;
+        if (!text.trim()) return;
+        const result = await window.go.main.App.SmartUnwrap(text);
+        if (result.success) {
+            getEditor().value = result.text;
+            buildTree(result.text);
+        } else {
+            showToast(result.error);
+        }
+    }
+
     async function doOpenFile() {
         const result = await window.go.main.App.OpenFile();
         if (result.success) {
             getEditor().value = result.text;
             buildTree(result.text);
-        } else if (result.error !== '未选择文件') {
+        } else if (result.code !== 'err.noFile') {
             showToast(result.error);
         }
     }
@@ -361,7 +471,7 @@
     async function doSaveFile() {
         const text = getEditor().value;
         const result = await window.go.main.App.SaveFile(text);
-        if (!result.success && result.error !== '未选择文件') {
+        if (!result.success && result.code !== 'err.noFile') {
             showToast(result.error);
         }
     }
@@ -383,7 +493,7 @@
             container.innerHTML = '';
             container.appendChild(createTreeNode('JSON', currentJsonData, [], true));
         } catch(e) {
-            container.innerHTML = '<div style="color:#f44">无法构建树结构</div>';
+            container.innerHTML = '<div style="color:#f44">' + escHtml(t('tree.buildError')) + '</div>';
             currentJsonData = null;
         }
     }
@@ -497,13 +607,13 @@
         menu.id = 'contextMenu';
 
         const items = [
-            { label: '复制 键名', action: () => copyText(String(key)) },
-            { label: '复制 键值', action: () => copyText(getValueStr(rawValue)) },
-            { label: '复制 键名:键值', action: () => copyText(key + ' : ' + getValueStr(rawValue)) },
+            { label: t('ctx.copyKey'), action: () => copyText(String(key)) },
+            { label: t('ctx.copyValue'), action: () => copyText(getValueStr(rawValue)) },
+            { label: t('ctx.copyKeyValue'), action: () => copyText(key + ' : ' + getValueStr(rawValue)) },
             { sep: true },
-            { label: '复制 路径', action: () => copyText(buildPathString(path)) },
-            { label: '复制 节点内容', action: () => copyText(typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue) : String(rawValue ?? 'null')) },
-            { label: '复制 节点内容(格式化)', action: () => copyText(typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue, null, 2) : String(rawValue ?? 'null')) },
+            { label: t('ctx.copyPath'), action: () => copyText(buildPathString(path)) },
+            { label: t('ctx.copyNode'), action: () => copyText(typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue) : String(rawValue ?? 'null')) },
+            { label: t('ctx.copyNodePretty'), action: () => copyText(typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue, null, 2) : String(rawValue ?? 'null')) },
         ];
 
         items.forEach(item => {
@@ -551,10 +661,10 @@
         menu.id = 'contextMenu';
 
         const items = [
-            { label: '复制', enabled: hasSelection, action: () => document.execCommand('copy') },
-            { label: '粘帖并格式化', enabled: true, action: () => doPaste() },
-            { label: '全选', enabled: true, action: () => editor.select() },
-            { label: '清空', enabled: true, action: () => doClear() },
+            { label: t('ctx.copy'), enabled: hasSelection, action: () => document.execCommand('copy') },
+            { label: t('ctx.pasteFormat'), enabled: true, action: () => doPaste() },
+            { label: t('ctx.selectAll'), enabled: true, action: () => editor.select() },
+            { label: t('ctx.clear'), enabled: true, action: () => doClear() },
         ];
 
         items.forEach(item => {
@@ -574,6 +684,7 @@
     function hideContextMenu() {
         const existing = document.getElementById('contextMenu');
         if (existing) existing.remove();
+        menuAnchor = null;
     }
     document.addEventListener('click', hideContextMenu);
 
@@ -588,19 +699,94 @@
         });
     }
 
+    // --- Toolbar Dropdown Menu ---
+    // Builds a popup menu anchored below a toolbar button. Reuses .context-menu styling.
+    let menuAnchor = null;
+
+    function showAnchoredMenu(anchor, items) {
+        hideContextMenu();
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.id = 'contextMenu';
+        items.forEach(item => {
+            if (item.sep) {
+                const sep = document.createElement('div');
+                sep.className = 'context-menu-separator';
+                menu.appendChild(sep);
+            } else {
+                const el = document.createElement('div');
+                el.className = 'context-menu-item';
+                el.textContent = item.label;
+                if (item.enabled === false) el.style.opacity = '0.4';
+                el.onclick = (e) => { e.stopPropagation(); hideContextMenu(); if (item.enabled !== false) item.action(); };
+                menu.appendChild(el);
+            }
+        });
+        document.body.appendChild(menu);
+        const rect = anchor.getBoundingClientRect();
+        let left = rect.left;
+        let top = rect.bottom + 2;
+        const menuRect = menu.getBoundingClientRect();
+        if (left + menuRect.width > window.innerWidth) left = window.innerWidth - menuRect.width - 5;
+        if (top + menuRect.height > window.innerHeight) top = Math.max(0, rect.top - menuRect.height - 2);
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        menuAnchor = anchor;
+    }
+
+    function showEditMenu(e) {
+        e.stopPropagation();
+        // Toggle: if the menu is already anchored to this button, just close it.
+        if (menuAnchor === e.currentTarget) { hideContextMenu(); return; }
+        showAnchoredMenu(e.currentTarget, [
+            { label: t('op.smartUnwrap'), action: () => doSmartUnwrap() },
+            { label: t('op.unescape'), action: () => doUnescapeDeep() },
+            { sep: true },
+            { label: t('op.clear'), action: () => doClear() },
+            { label: t('op.paste'), action: () => doPaste() },
+            { sep: true },
+            { label: t('op.rmNewlines'), action: () => doRemoveNewlines() },
+            { label: t('op.rmBackslashes'), action: () => doRemoveBackslashes() },
+        ]);
+    }
+
     // --- Search ---
+    function updateSearchModeBtn() {
+        const btn = document.getElementById('searchModeBtn');
+        if (btn) {
+            btn.textContent = searchMode === 'text' ? t('search.modeText') : t('search.modeNode');
+            btn.dataset.i18n = searchMode === 'text' ? 'search.modeText' : 'search.modeNode';
+        }
+    }
+
     function toggleSearch(mode) {
-        searchMode = mode || 'text';
+        if (mode) searchMode = mode;
         const bar = document.getElementById('searchBar');
-        const label = document.getElementById('searchModeLabel');
-        label.textContent = searchMode === 'text' ? '文本查找' : '节点查找';
+        const wasVisible = bar.classList.contains('visible');
         bar.classList.add('visible');
+        updateSearchModeBtn();
         document.getElementById('searchInput').focus();
         document.getElementById('searchResult').textContent = '';
         searchMatches = [];
         searchIdx = -1;
         treeSearchResults = [];
         treeSearchIdx = -1;
+        // Clicking the toolbar Find button while already open toggles it off.
+        if (wasVisible && mode === undefined) { closeSearch(); }
+    }
+
+    function toggleSearchMode() {
+        searchMode = searchMode === 'text' ? 'tree' : 'text';
+        updateSearchModeBtn();
+        document.getElementById('searchInput').focus();
+        searchMatches = [];
+        searchIdx = -1;
+        treeSearchResults = [];
+        treeSearchIdx = -1;
+        document.getElementById('searchResult').textContent = '';
+        // Re-run in the new mode if there is a query.
+        const q = document.getElementById('searchInput').value;
+        if (q) doSearch();
     }
 
     function doSearch() {
@@ -717,9 +903,9 @@
     function updateSearchResult() {
         const el = document.getElementById('searchResult');
         if (searchMode === 'text') {
-            el.textContent = searchMatches.length === 0 ? '没找到' : `${searchIdx + 1} / ${searchMatches.length}`;
+            el.textContent = searchMatches.length === 0 ? t('toast.notFound') : `${searchIdx + 1} / ${searchMatches.length}`;
         } else {
-            el.textContent = treeSearchResults.length === 0 ? '没找到' : `${treeSearchIdx + 1} / ${treeSearchResults.length}`;
+            el.textContent = treeSearchResults.length === 0 ? t('toast.notFound') : `${treeSearchIdx + 1} / ${treeSearchResults.length}`;
         }
     }
 
@@ -763,10 +949,10 @@
 
     // --- Toast ---
     function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 4000);
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 4000);
     }
 
     // --- Keyboard shortcuts ---
@@ -777,6 +963,7 @@
                 case 'g': e.preventDefault(); doSortFormat(); break;
                 case 'h': e.preventDefault(); doCompress(); break;
                 case 'b': e.preventDefault(); doFilter(); break;
+                case 'e': e.preventDefault(); doDeepParse(); break;
                 case 'd': e.preventDefault(); doClear(); break;
                 case 'n': e.preventDefault(); addTab(); break;
                 case 'w': e.preventDefault(); closeCurrentTab(); break;
@@ -830,12 +1017,17 @@
 
     // --- Init ---
     loadTheme();
-    addTab('Welcome');
+    loadLocale();
+    addTab(t('tab.welcome'));
 
     // Check if a file was passed as startup argument (drag file onto app icon)
     window.addEventListener('DOMContentLoaded', () => {
         setTimeout(async () => {
             try {
+                // Sync saved locale to the backend so dialogs/errors match.
+                if (window.go && window.go.main && window.go.main.App && window.go.main.App.SetLocale) {
+                    await window.go.main.App.SetLocale(currentLocale);
+                }
                 const result = await window.go.main.App.GetStartupFile();
                 if (result.success) {
                     getEditor().value = result.text;
