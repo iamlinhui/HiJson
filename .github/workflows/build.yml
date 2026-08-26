@@ -1,0 +1,105 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号，如 1.0.1'
+        required: true
+      notes:
+        description: '更新说明（写入 Release）'
+        required: false
+        default: ''
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+
+      - name: Install NSIS
+        run: |
+          choco install nsis --no-progress -y
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files (x86)\NSIS"
+
+      - name: Build Windows installer
+        run: wails build -platform windows/amd64 -nsis -ldflags "-X main.Version=${{ github.event.inputs.version }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: build/bin/*-installer.exe
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+
+      - name: Build macOS app (${{ matrix.arch }})
+        run: wails build -platform darwin/${{ matrix.arch }} -ldflags "-X main.Version=${{ github.event.inputs.version }}"
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "HiJson" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 80 \
+            --icon "HiJson.app" 175 120 \
+            --app-drop-link 425 120 \
+            "build/bin/HiJson-${{ matrix.arch }}.dmg" \
+            "build/bin/HiJson.app"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-${{ matrix.arch }}
+          path: build/bin/*.dmg
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum "HiJson-amd64-installer.exe" "HiJson-amd64.dmg" "HiJson-arm64.dmg" > SHA256SUMS.txt
+
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: v${{ github.event.inputs.version }}
+          body: ${{ github.event.inputs.notes }}
+          files: artifacts/*

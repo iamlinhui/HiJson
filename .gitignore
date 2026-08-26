@@ -1,5 +1,5 @@
 build/bin
-go.sum
+build/windows/installer/tmp/
 wailsjs
 *.exe
 .idea

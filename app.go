@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -45,8 +46,9 @@ var translations = map[string]map[string]string{
 
 // App struct
 type App struct {
-	ctx    context.Context
-	locale string
+	ctx        context.Context
+	locale     string
+	windowHwnd uintptr // native window handle for OS title-bar theming
 }
 
 // NewApp creates a new App application struct
@@ -57,6 +59,60 @@ func NewApp() *App {
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Match the native window title bar to the persisted theme right away, so it
+	// doesn't flash the system-default colour before the frontend reconciles.
+	a.windowHwnd = findMainWindow()
+	setWindowDarkMode(a.windowHwnd, loadStoredTheme() == "dark")
+}
+
+// SetAppWindowDark toggles the native window title bar between dark and light
+// to match the in-app theme. Called by the frontend whenever the theme changes
+// (and once on load, to reconcile). It is a no-op on non-Windows platforms.
+// The choice is persisted so the next launch can apply it before the frontend
+// has loaded.
+func (a *App) SetAppWindowDark(dark bool) {
+	theme := "light"
+	if dark {
+		theme = "dark"
+	}
+	saveStoredTheme(theme)
+	if a.windowHwnd == 0 {
+		a.windowHwnd = findMainWindow()
+	}
+	setWindowDarkMode(a.windowHwnd, dark)
+}
+
+// storedThemePath returns where the last chosen theme is remembered, so the
+// native title bar can follow it on the next launch before the frontend (and
+// its localStorage value) has loaded.
+func storedThemePath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "HiJson", "theme"), nil
+}
+
+// loadStoredTheme reads the persisted theme ("dark"/"light"), defaulting to
+// dark to match the frontend's default.
+func loadStoredTheme() string {
+	if path, err := storedThemePath(); err == nil {
+		if data, err := os.ReadFile(path); err == nil {
+			if theme := strings.TrimSpace(string(data)); theme == "dark" || theme == "light" {
+				return theme
+			}
+		}
+	}
+	return "dark"
+}
+
+// saveStoredTheme persists the theme choice for the next launch.
+func saveStoredTheme(theme string) {
+	if path, err := storedThemePath(); err == nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err == nil {
+			_ = os.WriteFile(path, []byte(theme), 0644)
+		}
+	}
 }
 
 // SetLocale switches the backend language used for error messages and dialogs.
