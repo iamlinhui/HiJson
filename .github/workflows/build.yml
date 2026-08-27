@@ -7,7 +7,7 @@ on:
         description: '版本号，如 1.0.1'
         required: true
       notes:
-        description: '更新说明（写入 Release）'
+        description: '更新说明（仅单行；多行请编辑仓库根目录 RELEASE_NOTES.md，该文件优先生效）'
         required: false
         default: ''
 
@@ -85,6 +85,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -96,10 +99,22 @@ jobs:
           cd artifacts
           sha256sum "HiJson-amd64-installer.exe" "HiJson-amd64.dmg" "HiJson-arm64.dmg" > SHA256SUMS.txt
 
+      - name: Resolve release notes
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          # workflow_dispatch 输入框只支持单行，多行更新说明写在仓库根目录的
+          # RELEASE_NOTES.md 里（支持完整 Markdown），该文件存在时优先生效。
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md notes.md
+          else
+            printf '%s' "$NOTES" > notes.md
+          fi
+
       - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: v${{ github.event.inputs.version }}
-          body: ${{ github.event.inputs.notes }}
+          body_path: notes.md
           files: artifacts/*
